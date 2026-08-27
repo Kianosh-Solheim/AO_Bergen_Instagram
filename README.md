@@ -1,11 +1,55 @@
-<div align="center">
+# Instagram Malbygger – Arkitekturopprør
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Et moderne og fleksibelt verktøy for å designe, tilpasse og eksportere Instagram-karuseller (1080 × 1350 px, 4:5 format) i tråd med den visuelle profilen til Arkitekturopprøret.
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 🚀 Publisering til GitHub Pages
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Dette prosjektet er klargjort for publisering til **GitHub Pages** på to enkle måter:
 
-</div>
+### Metode 1: Automatisk med GitHub Actions (Anbefalt)
+
+1. Last opp / push koden til ditt GitHub-repository (på `main`-grenen).
+2. Gå til repositoriet ditt på GitHub.
+3. Klikk på **Settings** (Innstillinger) ⚙️ øverst.
+4. Velg **Pages** i venstremenyen.
+5. Under **Build and deployment** -> **Source**, velg **GitHub Actions**.
+6. Hver gang du pusher til `main`, vil workflowen `.github/workflows/deploy.yml` automatisk bygge og publisere siden din til `https://<brukernavn>.github.io/<repository-navn>/`!
+
+---
+
+### Metode 2: Manuell publisering med `npm run deploy`
+
+Dersom du ønsker å publisere manuelt fra terminalen:
+
+```bash
+# 1. Installer avhengigheter
+npm install
+
+# 2. Bygg og publiser til gh-pages-grenen automatisk
+npm run deploy
+```
+
+Dette vil bygge prosjektet til `dist/` og pushe innholdet direkte til en `gh-pages`-gren på ditt GitHub-repository.
+
+---
+
+## 💻 Lokal utvikling
+
+```bash
+# Start lokal utviklingsserver
+npm run dev
+
+# Test statisk produksjonsbygg lokalt
+npm run build:spa
+npm run preview
+```
+
+---
+
+## 🎨 Funksjonalitet
+- **1080 × 1350 Canvas:** Perfekt 4:5-format for Instagram-karuseller med lilla sikkerhetssone.
+- **Interaktivt zoom & panoreringssystem:** Zoom inn/ut med rullehjul eller snarveier, hold inne mellomrom for å panorere fritt.
+- **Mal- og oppskriftsbibliotek:** Hook/forside, Fra dette/Til dette, Flerbilde, Sitat & Tekstslide, Prislapp og Tull & Tøys/Meme.
+- **Eksportering:** Last ned alle slides som høyoppløselige PNG-filer samlet i en ZIP-fil eller kopier til utklippstavlen.

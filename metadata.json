@@ -1,0 +1,6 @@
+{
+  "name": "AO Instagram Malbygger",
+  "description": "Interaktivt verktøy for å lage Instagram-innlegg (1080x1350) basert på oppskriften med merkefarger (#fffdf7, #f7fff7, #f7f9ff), Agrandir-font, før/etter-sammenligninger og karuseller.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
