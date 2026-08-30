@@ -20,6 +20,7 @@ interface ExportModalProps {
   project: CarouselProject;
   activeSlideIndex: number;
   activeSlideRef: React.RefObject<HTMLDivElement | null>;
+  onExportSuccess?: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -28,6 +29,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   project,
   activeSlideIndex,
   activeSlideRef,
+  onExportSuccess,
 }) => {
   if (!isOpen) return null;
 
@@ -67,6 +69,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       console.error('Kunne ikke eksportere bilde:', err);
     } finally {
       setIsExportingSingle(false);
+      if (onExportSuccess) onExportSuccess();
     }
   };
 
@@ -127,6 +130,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       console.error('Kunne ikke lage ZIP:', err);
     } finally {
       setIsExportingAll(false);
+      if (onExportSuccess) onExportSuccess();
     }
   };
 

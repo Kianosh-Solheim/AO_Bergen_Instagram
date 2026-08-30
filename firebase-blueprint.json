@@ -1,0 +1,47 @@
+{
+  "projectSettings": {
+    "authEnabled": true,
+    "defaultRulesLevel": "private"
+  },
+  "collections": [
+    {
+      "name": "projects",
+      "description": "Stores user drafts and published projects",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "ID of the user who owns the project"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the project"
+          },
+          "data": {
+            "type": "string",
+            "description": "JSON serialized string of the project data (slides, etc)"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "published"],
+            "description": "Whether the project is a draft or published"
+          },
+          "createdAt": {
+            "type": "timestamp"
+          },
+          "updatedAt": {
+            "type": "timestamp"
+          }
+        },
+        "required": ["userId", "title", "data", "status", "createdAt", "updatedAt"]
+      },
+      "rules": {
+        "read": "request.auth != null && request.auth.uid == resource.data.userId",
+        "create": "request.auth != null && request.resource.data.userId == request.auth.uid",
+        "update": "request.auth != null && request.auth.uid == resource.data.userId && request.resource.data.userId == request.auth.uid",
+        "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+      }
+    }
+  ]
+}

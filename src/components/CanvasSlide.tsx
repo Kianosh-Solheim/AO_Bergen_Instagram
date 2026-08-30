@@ -1,4 +1,4 @@
-import React, { Fragment } from 'react';
+import React, { Fragment, useState, useRef, useEffect, MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { Slide, BrandFont, SlideImage } from '../types';
 import {
   Sparkles,
@@ -9,6 +9,11 @@ import {
   MoreHorizontal,
   Upload,
   Image as ImageIcon,
+  Move,
+  Settings,
+  Type,
+  MousePointer2,
+  X as CloseIcon,
 } from 'lucide-react';
 
 interface CanvasSlideProps {
@@ -128,7 +133,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
       <div 
         className={`${customHeightClass} ${
           slide.galleryLayout === 'horizontal' ? 'flex flex-row' : 
-          slide.galleryLayout === 'grid' ? 'grid grid-cols-2' : 
+          slide.galleryLayout === 'grid' ? (images.length === 3 ? 'grid grid-cols-2 [&>*:first-child]:col-span-2 [&>*:first-child]:aspect-[2/1] [&>*:not(:first-child)]:aspect-square' : 'grid grid-cols-2') : 
           'flex flex-col'
         } ${getSpacingClass(slide.spacingGap)}`}
       >
@@ -144,79 +149,18 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
     placeholderLabel = 'Last opp bilde (valgfritt)',
     customHeightClass = 'flex-1'
   ) => {
-    const hasImage = Boolean(img?.url);
-
-    if (hasImage && img) {
-      return (
-        <div key={img.id || index}
-          className={`relative ${customHeightClass} rounded-sm overflow-hidden bg-stone-200/90 shadow-xs flex flex-col group ${
-            interactive ? 'cursor-pointer' : ''
-          }`}
-          onClick={() => interactive && onOpenImageModal && onOpenImageModal(img, index)}
-          title="Klikk for å justere bilde"
-        >
-          <img
-            src={img.url}
-            alt={img.caption || slide.title || 'Slide bilde'}
-            className="w-full h-full object-cover"
-            style={{
-              transform: `scale(${img.zoom || 1})`,
-              objectPosition: `${img.positionX ?? 50}% ${img.positionY ?? 50}%`,
-            }}
-            
-          />
-          {img.credit && (
-            <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white/95 text-[9px] px-2 py-0.5 rounded font-normal">
-              {img.credit}
-            </div>
-          )}
-          {img.labelTag && (
-            <div className="absolute top-2.5 right-2.5 bg-stone-900/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-md border border-white/20">
-              {img.labelTag}
-            </div>
-          )}
-          {img.signText && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-stone-900 font-bold text-[14px] px-4 py-2 shadow-lg border border-stone-200" style={{ transform: 'translateX(-50%) rotate(-1deg)' }}>
-              {img.signText}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Clean placeholder when no image is present
     return (
-      <div key={`placeholder-${index}`}
-        className={`relative ${customHeightClass} min-h-[140px] rounded-sm border-2 border-dashed border-stone-300/80 hover:border-purple-400 bg-stone-100/50 hover:bg-purple-50/40 transition-all flex flex-col items-center justify-center p-4 text-center group ${
-          interactive ? 'cursor-pointer' : ''
-        }`}
-        onClick={() => {
-          if (interactive && onOpenImageModal) {
-            const targetImg = img || {
-              id: `img-${Date.now()}-${index}`,
-              url: '',
-              credit: '',
-              aspectRatio: '4:3',
-              objectFit: 'cover',
-              zoom: 1,
-              positionY: 50,
-              positionX: 50,
-            };
-            onOpenImageModal(targetImg, index);
-          }
-        }}
-        title="Klikk for å laste opp bilde"
-      >
-        <div className="w-9 h-9 rounded-full bg-stone-200/80 group-hover:bg-purple-100 flex items-center justify-center text-stone-500 group-hover:text-purple-600 mb-1.5 transition-colors">
-          <Upload className="w-4 h-4" />
-        </div>
-        <p className="text-xs font-bold text-stone-700 group-hover:text-purple-900 leading-tight">
-          {placeholderLabel}
-        </p>
-        <p className="text-[10px] text-stone-400 mt-0.5">
-          Klikk for å velge bilde (eller la stå tom)
-        </p>
-      </div>
+      <InteractiveImageSlot
+        key={img?.id || `slot-${index}`}
+        img={img}
+        index={index}
+        slide={slide}
+        placeholderLabel={placeholderLabel}
+        customHeightClass={customHeightClass}
+        interactive={interactive}
+        onOpenImageModal={onOpenImageModal}
+        onUpdateSlide={onUpdateSlide}
+      />
     );
   };
 
@@ -286,7 +230,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
         >
           {/* 1. PRESET: HOOK / ENKELT BILDE */}
           {slide.preset === 'hook' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {/* Header Title */}
               <div
                 className={`flex flex-col mb-4 ${
@@ -334,7 +278,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 2. PRESET: FRA DETTE / TIL DETTE (FØR & ETTER) */}
           {slide.preset === 'fra_til' && (
-            <div className="flex-1 flex flex-col justify-between gap-3">
+            <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
               {slide.title && (
                 <div
                   className={`text-${slide.titleAlign} ${getTitleSizeClass(
@@ -346,7 +290,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               )}
 
               {/* Image 1: Fra dette */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col min-h-0">
                 <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
                   {slide.images[0]?.caption || 'Fra dette:'}
                 </p>
@@ -354,7 +298,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               </div>
 
               {/* Image 2: Til dette */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col min-h-0">
                 <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
                   {slide.images[1]?.caption || 'Til dette:'}
                 </p>
@@ -365,7 +309,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 3. PRESET: FLERBILDE / HVA SOM RIVES / HVA DE VIL BYGGE */}
           {slide.preset === 'flerbilde' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {/* Headline */}
               {(slide.superTitle || slide.title) && (
                 <div
@@ -396,19 +340,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               )}
 
               {/* Images Stack / Gallery */}
-              <div 
-                className={`flex-1 ${
-                  slide.galleryLayout === 'horizontal' ? 'flex flex-row' : 
-                  slide.galleryLayout === 'grid' ? 'grid grid-cols-2' : 
-                  'flex flex-col' // default to vertical
-                } ${getSpacingClass(slide.spacingGap)}`}
-              >
-                {slide.images.length > 0 ? (
-                  slide.images.map((img, idx) => renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-0'))
-                ) : (
-                  renderImageSlot(undefined, 0, 'Klikk for å legge til bilde', 'flex-1 min-h-[160px]')
-                )}
-              </div>
+              {renderImageGallery(slide.images, 'Klikk for å legge til bilde', 'flex-1 min-h-0')}
 
               {slide.sourceCredit && (
                 <div className="mt-2 text-right">
@@ -422,7 +354,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 4. PRESET: PRISLAPP / NØKKELTALL */}
           {slide.preset === 'prislapp' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {/* Title & Price Big Stat */}
               {(slide.superTitle || slide.title || slide.priceValue) && (
                 <div
@@ -473,7 +405,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 5. PRESET: SITAT & TEKSTSLIDE MED IKON */}
           {slide.preset === 'sitat' && (
-            <div className="flex-1 flex flex-col justify-between py-2">
+            <div className="flex-1 flex flex-col justify-between py-2 min-h-0">
               {/* Top Icon */}
               <div className="flex justify-center mb-2">
                 <span className="text-[38px] leading-none filter drop-shadow-xs">
@@ -507,7 +439,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 6. PRESET: UNDERTEKST (BILDE MED TEKST UNDER) */}
           {slide.preset === 'undertekst' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {/* Top Headline */}
               {(slide.superTitle || slide.title) && (
                 <div
@@ -556,7 +488,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 7. PRESET: MEME / TULL OG TØYS (COMIC SANS, SNAKKEBOBLE, GRU) */}
           {slide.preset === 'meme' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {/* Meme Title */}
               {(slide.superTitle || slide.title || slide.subtitle) && (
                 <div
@@ -624,7 +556,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
           {/* 8. PRESET: SIDE BY SIDE SAMMENLIGNING */}
           {slide.preset === 'side_by_side' && (
-            <div className="flex-1 flex flex-col justify-between">
+            <div className="flex-1 flex flex-col justify-between min-h-0">
               {(slide.superTitle || slide.title) && (
                 <div
                   className={`mb-3 ${
@@ -682,6 +614,296 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+
+interface InteractiveImageSlotProps {
+  img: SlideImage | undefined;
+  index: number;
+  slide: Slide;
+  placeholderLabel: string;
+  customHeightClass: string;
+  interactive: boolean;
+  onOpenImageModal?: (image: SlideImage | undefined, index: number) => void;
+  onUpdateSlide?: (updatedSlide: Slide) => void;
+}
+
+const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
+  img,
+  index,
+  slide,
+  placeholderLabel,
+  customHeightClass,
+  interactive,
+  onOpenImageModal,
+  onUpdateSlide
+}) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [isDragMode, setIsDragMode] = useState(false);
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [posOffset, setPosOffset] = useState({ x: img?.positionX ?? 50, y: img?.positionY ?? 50 });
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync state if img changes externally
+  useEffect(() => {
+    if (img) {
+      setPosOffset({ x: img.positionX ?? 50, y: img.positionY ?? 50 });
+    }
+  }, [img?.positionX, img?.positionY]);
+
+  const hasImage = Boolean(img?.url);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!interactive || !hasImage) return;
+    if (isDragMode) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      e.stopPropagation(); // Prevent text selection/image dragging
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || !isDragMode || !img || !containerRef.current) return;
+    
+    // Calculate movement in percentage of container size
+    const rect = containerRef.current.getBoundingClientRect();
+    e.stopPropagation();
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    
+    // Sensitivity based on zoom. If zoomed in, moving mouse should pan image.
+    // CSS object-position works by percentage (0% to 100%).
+    const percentX = (dx / rect.width) * 100;
+    const percentY = (dy / rect.height) * 100;
+    
+    // Note: object-position moves the image. Negative % moves image left/up.
+    // Wait, dragging right means object position should go left to reveal left side, 
+    // actually standard drag: drag right -> image moves right -> object position % decreases.
+    
+    setPosOffset(prev => {
+      let newX = prev.x - percentX * 0.5; // tweak sensitivity
+      let newY = prev.y - percentY * 0.5;
+      return { 
+        x: Math.max(0, Math.min(100, newX)), 
+        y: Math.max(0, Math.min(100, newY)) 
+      };
+    });
+    
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handlePointerUp = () => {
+    if (!isDragging || !isDragMode || !img) return;
+    setIsDragging(false);
+    
+    // Save to slide
+    if (onUpdateSlide) {
+      const updatedImages = [...slide.images];
+      updatedImages[index] = {
+        ...img,
+        positionX: posOffset.x,
+        positionY: posOffset.y
+      };
+      onUpdateSlide({ ...slide, images: updatedImages });
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent | WheelEvent) => {
+    if (!interactive || !hasImage || !img || !isDragMode) return;
+    e.preventDefault(); // stop page scroll
+    e.stopPropagation();
+    
+    const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
+    const currentZoom = img.zoom || 1;
+    const newZoom = Math.max(1, Math.min(3, currentZoom + zoomDelta));
+    
+    if (onUpdateSlide && newZoom !== currentZoom) {
+      const updatedImages = [...slide.images];
+      updatedImages[index] = {
+        ...img,
+        zoom: newZoom
+      };
+      onUpdateSlide({ ...slide, images: updatedImages });
+    }
+  };
+  
+  // Attach non-passive wheel listener manually because React synthetic wheel events are passive
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !isDragMode) return;
+    
+    const preventScroll = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleWheel(e);
+    };
+    
+    el.addEventListener('wheel', preventScroll, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', preventScroll);
+    };
+  }, [isDragMode, slide, img, onUpdateSlide, index, hasImage, interactive]);
+
+  const handleClick = (e: ReactMouseEvent) => {
+    if (!interactive) return;
+    
+    if (!hasImage) {
+      if (onOpenImageModal) {
+        const targetImg = img || {
+          id: `img-${Date.now()}-${index}`,
+          url: '',
+          credit: '',
+          aspectRatio: '4:3',
+          objectFit: 'cover',
+          zoom: 1,
+          positionY: 50,
+          positionX: 50,
+        };
+        onOpenImageModal(targetImg, index);
+      }
+      return;
+    }
+
+    if (isDragMode) {
+      // If we are in drag mode and dragging happened, we probably handled it in pointer events.
+      // But we can allow clicking to exit drag mode maybe? 
+      return;
+    }
+    
+    // Toggle menu
+    setShowMenu(!showMenu);
+  };
+
+  if (!hasImage || !img) {
+    return (
+      <div
+        className={`relative ${customHeightClass} min-h-[140px] rounded-sm border-2 border-dashed border-stone-300/80 hover:border-purple-400 bg-stone-100/50 hover:bg-purple-50/40 transition-all flex flex-col items-center justify-center p-4 text-center group ${
+          interactive ? 'cursor-pointer' : ''
+        }`}
+        onClick={handleClick}
+      >
+        <ImageIcon className="w-8 h-8 text-stone-300 group-hover:text-purple-400 transition-colors mb-2" />
+        <span className="text-xs font-semibold text-stone-400 group-hover:text-purple-500">
+          {placeholderLabel}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={`relative ${customHeightClass} rounded-sm overflow-hidden bg-stone-200/90 shadow-xs flex flex-col group ${
+        interactive && isDragMode ? 'cursor-grab active:cursor-grabbing' : interactive ? 'cursor-pointer' : ''
+      }`}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      
+      title={isDragMode ? "Dra for å flytte, scroll for å zoome" : "Klikk for meny"}
+    >
+      <img
+        src={img.url}
+        alt={img.caption || slide.title || 'Slide bilde'}
+        className="w-full h-full object-cover"
+        style={{
+          transform: `scale(${img.zoom || 1})`,
+          objectPosition: `${posOffset.x}% ${posOffset.y}%`,
+          transformOrigin: `${posOffset.x}% ${posOffset.y}%`,
+        }}
+      />
+      {img.credit && (
+        <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white/95 text-[9px] px-2 py-0.5 rounded font-normal z-10 pointer-events-none">
+          {img.credit}
+        </div>
+      )}
+      {img.labelTag && (
+        <div className="absolute top-2.5 right-2.5 bg-stone-900/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-md border border-white/20 z-10 pointer-events-none">
+          {img.labelTag}
+        </div>
+      )}
+      {img.signText && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-stone-900 font-bold text-[14px] px-4 py-2 shadow-lg border border-stone-200 z-10 pointer-events-none" style={{ transform: 'translateX(-50%) rotate(-1deg)' }}>
+          {img.signText}
+        </div>
+      )}
+      
+      {/* Interactive Overlay Menu */}
+      {interactive && showMenu && !isDragMode && (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center gap-2 p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl flex flex-col overflow-hidden w-48 text-sm">
+            <div className="px-3 py-2 bg-stone-100 border-b border-stone-200 flex justify-between items-center">
+              <span className="font-bold text-stone-700 text-xs uppercase tracking-wider">Rediger bilde</span>
+              <button onClick={() => setShowMenu(false)} className="text-stone-400 hover:text-stone-700">
+                <CloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <button 
+              onClick={() => { setIsDragMode(true); setShowMenu(false); }}
+              className="flex items-center gap-2 px-4 py-2.5 hover:bg-purple-50 text-stone-800 text-left transition-colors border-b border-stone-100"
+            >
+              <Move className="w-4 h-4 text-purple-600" />
+              <span className="font-semibold">Endre plassering</span>
+            </button>
+            <button 
+              onClick={() => { if (onOpenImageModal) onOpenImageModal(img, index); setShowMenu(false); }}
+              className="flex items-center gap-2 px-4 py-2.5 hover:bg-stone-50 text-stone-800 text-left transition-colors border-b border-stone-100"
+            >
+              <Settings className="w-4 h-4 text-stone-500" />
+              <span className="font-medium">Merkelapper & Kilde</span>
+            </button>
+            <button 
+              onClick={() => { 
+    if (onOpenImageModal) {
+      const targetImg = img || {
+        id: `img-${Date.now()}-${index}`,
+        url: '',
+        credit: '',
+        aspectRatio: '4:3',
+        objectFit: 'cover',
+        zoom: 1,
+        positionY: 50,
+        positionX: 50,
+      };
+      onOpenImageModal(targetImg, index); 
+    }
+    setShowMenu(false); 
+  }}
+              className="flex items-center gap-2 px-4 py-2.5 hover:bg-stone-50 text-stone-800 text-left transition-colors"
+            >
+              <ImageIcon className="w-4 h-4 text-stone-500" />
+              <span className="font-medium">Bytt bilde</span>
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Drag Mode Indicator */}
+      {interactive && isDragMode && (
+        <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-20 flex items-center gap-1.5 pointer-events-none">
+          <Move className="w-3.5 h-3.5" />
+          Dra & Zoom
+        </div>
+      )}
+      
+      {/* Exit Drag Mode Button */}
+      {interactive && isDragMode && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); setIsDragMode(false); }}
+          className="absolute top-2 right-2 bg-white text-stone-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-30 flex items-center gap-1.5 hover:bg-stone-100 border border-stone-200 cursor-pointer"
+        >
+          <CloseIcon className="w-3.5 h-3.5" />
+          Ferdig
+        </button>
+      )}
     </div>
   );
 };
