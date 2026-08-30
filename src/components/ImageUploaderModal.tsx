@@ -29,10 +29,50 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
   const [positionY, setPositionY] = useState(image.positionY ?? 50);
   const [positionX, setPositionX] = useState(image.positionX ?? 50);
   const [labelTag, setLabelTag] = useState(image.labelTag || '');
+  const [signText, setSignText] = useState(image.signText || '');
   const [urlInput, setUrlInput] = useState('');
   const [isUrlMode, setIsUrlMode] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Handle dragging to pan image
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      const sensitivity = 0.3 / zoom;
+      setPositionX(prev => Math.max(0, Math.min(100, prev - deltaX * sensitivity)));
+      setPositionY(prev => Math.max(0, Math.min(100, prev - deltaY * sensitivity)));
+      setDragStart({ x: e.clientX, y: e.clientY });
+    };
+    const handleMouseUp = () => setIsDragging(false);
+    
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart, zoom]);
+
+  // Handle wheel to zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(1, Math.min(3, prev + zoomDelta)));
+  };
+
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,6 +97,7 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
       positionY,
       positionX,
       labelTag,
+      signText,
     });
     onClose();
   };
@@ -83,9 +124,9 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
           {/* Image Live Crop Preview */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">
-              Forhåndsvisning med utsnitt og zoom
+              Forhåndsvisning (Dra i bildet for å posisjonere, scroll for å zoome)
             </label>
-            <div className="relative w-full h-56 bg-stone-200 rounded-lg overflow-hidden border border-stone-300 shadow-inner flex items-center justify-center">
+            <div className="relative w-full h-56 bg-stone-200 rounded-lg overflow-hidden border border-stone-300 shadow-inner flex items-center justify-center cursor-move" onMouseDown={handleMouseDown} onWheel={handleWheel}>
               {url ? (
                 <img
                   src={url}
@@ -120,43 +161,36 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">
-                Last opp eget bilde eller velg eksempelfoto
+                Last opp bilde, lim inn link eller velg eksempel
               </label>
-              <div className="flex gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setIsUrlMode(!isUrlMode)}
-                  className="text-stone-600 hover:text-stone-900 underline flex items-center gap-1"
-                >
-                  <Link className="w-3.5 h-3.5" />
-                  {isUrlMode ? 'Skjul URL-felt' : 'Lim inn URL'}
-                </button>
-              </div>
             </div>
 
-            {isUrlMode && (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Link className="w-4 h-4 text-stone-400" />
+                </div>
                 <input
                   type="text"
-                  placeholder="https://eksempel.no/bilde.jpg"
+                  placeholder="Lim inn bilde-URL her (f.eks. fra en nettside)"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (urlInput.trim()) {
-                      setUrl(urlInput.trim());
-                      setUrlInput('');
-                    }
-                  }}
-                  className="px-3 py-2 bg-stone-800 text-white text-xs font-medium rounded-lg hover:bg-stone-900"
-                >
-                  Bruk
-                </button>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (urlInput.trim()) {
+                    setUrl(urlInput.trim());
+                    setUrlInput('');
+                  }
+                }}
+                className="px-4 py-2 bg-stone-800 text-white text-xs font-medium rounded-lg hover:bg-stone-900 transition-colors shadow-xs"
+              >
+                Hent bilde
+              </button>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <input
@@ -286,19 +320,33 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
             </div>
           </div>
 
-          {/* Meme Label Tag (Optional) */}
-          <div>
-            <label className="block text-xs font-semibold text-stone-600 mb-1">
-              Valgfri merkelapp / Meme-tag (vises i hjørnet av bildet)
-            </label>
-            <input
-              type="text"
-              placeholder="F.eks. «Gru sitt hus | Despicable me» eller «Møllendalsveien 1C»"
-              value={labelTag}
-              onChange={(e) => setLabelTag(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 mb-1">
+                Skilt under bildet (ny funksjon)
+              </label>
+              <input
+                type="text"
+                placeholder="F.eks. «Planlagt revet»"
+                value={signText}
+                onChange={(e) => setSignText(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 mb-1">
+                Valgfri merkelapp i hjørnet (meme)
+              </label>
+              <input
+                type="text"
+                placeholder="F.eks. «Gru sitt hus»"
+                value={labelTag}
+                onChange={(e) => setLabelTag(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
           </div>
+          
         </div>
 
         {/* Footer */}

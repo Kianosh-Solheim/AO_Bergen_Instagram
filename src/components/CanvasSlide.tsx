@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { Slide, BrandFont, SlideImage } from '../types';
 import {
   Sparkles,
@@ -108,6 +108,35 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
     });
   };
 
+
+  // Helper to render one or more images based on slide.images (auto-gallery)
+  const renderImageGallery = (
+    images: SlideImage[],
+    placeholderLabel = 'Last opp bilde (valgfritt)',
+    customHeightClass = 'flex-1 min-h-0'
+  ) => {
+    if (!images || images.length === 0) {
+      return renderImageSlot(undefined, 0, placeholderLabel, customHeightClass);
+    }
+    
+    if (images.length === 1) {
+      return renderImageSlot(images[0], 0, placeholderLabel, customHeightClass);
+    }
+    
+    // Multiple images -> gallery layout
+    return (
+      <div 
+        className={`${customHeightClass} ${
+          slide.galleryLayout === 'horizontal' ? 'flex flex-row' : 
+          slide.galleryLayout === 'grid' ? 'grid grid-cols-2' : 
+          'flex flex-col'
+        } ${getSpacingClass(slide.spacingGap)}`}
+      >
+        {images.map((img, idx) => renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-0'))}
+      </div>
+    );
+  };
+
   // Helper to render image or clean placeholder
   const renderImageSlot = (
     img: SlideImage | undefined,
@@ -119,7 +148,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
     if (hasImage && img) {
       return (
-        <div
+        <div key={img.id || index}
           className={`relative ${customHeightClass} rounded-sm overflow-hidden bg-stone-200/90 shadow-xs flex flex-col group ${
             interactive ? 'cursor-pointer' : ''
           }`}
@@ -146,13 +175,18 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               {img.labelTag}
             </div>
           )}
+          {img.signText && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-stone-900 font-bold text-[14px] px-4 py-2 shadow-lg border border-stone-200" style={{ transform: 'translateX(-50%) rotate(-1deg)' }}>
+              {img.signText}
+            </div>
+          )}
         </div>
       );
     }
 
     // Clean placeholder when no image is present
     return (
-      <div
+      <div key={`placeholder-${index}`}
         className={`relative ${customHeightClass} min-h-[140px] rounded-sm border-2 border-dashed border-stone-300/80 hover:border-purple-400 bg-stone-100/50 hover:bg-purple-50/40 transition-all flex flex-col items-center justify-center p-4 text-center group ${
           interactive ? 'cursor-pointer' : ''
         }`}
@@ -263,6 +297,11 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                     : 'items-start text-left'
                 }`}
               >
+                {slide.superTitle && (
+                  <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
+                    {slide.superTitle}
+                  </p>
+                )}
                 {slide.title && (
                   <h1
                     className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
@@ -280,7 +319,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               </div>
 
               {/* Central Image inside frame */}
-              {renderImageSlot(slide.images[0], 0, 'Klikk for å laste opp bilde', 'flex-1 min-h-[240px]')}
+              {renderImageGallery(slide.images, 'Klikk for å laste opp bilde', 'flex-1 min-h-0')}
 
               {/* Source Credit Footer */}
               {slide.sourceCredit && (
@@ -311,7 +350,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
                   {slide.images[0]?.caption || 'Fra dette:'}
                 </p>
-                {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-[110px]')}
+                {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-0')}
               </div>
 
               {/* Image 2: Til dette */}
@@ -319,7 +358,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
                   {slide.images[1]?.caption || 'Til dette:'}
                 </p>
-                {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-[110px]')}
+                {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-0')}
               </div>
             </div>
           )}
@@ -328,19 +367,26 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {slide.preset === 'flerbilde' && (
             <div className="flex-1 flex flex-col justify-between">
               {/* Headline */}
-              {slide.title && (
+              {(slide.superTitle || slide.title) && (
                 <div
                   className={`mb-3 ${
                     slide.titleAlign === 'center' ? 'text-center' : 'text-left'
                   }`}
                 >
-                  <h2
-                    className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                      slide.titleSize
-                    )}`}
-                  >
-                    {slide.title}
-                  </h2>
+                  {slide.superTitle && (
+                    <p className="mb-1 text-[15px] text-stone-600 font-medium">
+                      {slide.superTitle}
+                    </p>
+                  )}
+                  {slide.title && (
+                    <h2
+                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
+                        slide.titleSize
+                      )}`}
+                    >
+                      {slide.title}
+                    </h2>
+                  )}
                   {slide.subtitle && (
                     <p className="text-[15px] text-stone-600 font-medium mt-0.5">
                       {slide.subtitle}
@@ -349,14 +395,16 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 </div>
               )}
 
-              {/* Images Stack */}
-              <div className={`flex-1 flex flex-col ${getSpacingClass(slide.spacingGap)}`}>
+              {/* Images Stack / Gallery */}
+              <div 
+                className={`flex-1 ${
+                  slide.galleryLayout === 'horizontal' ? 'flex flex-row' : 
+                  slide.galleryLayout === 'grid' ? 'grid grid-cols-2' : 
+                  'flex flex-col' // default to vertical
+                } ${getSpacingClass(slide.spacingGap)}`}
+              >
                 {slide.images.length > 0 ? (
-                  slide.images.map((img, idx) => (
-                    <React.Fragment key={img.id || idx}>
-                      {renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-[100px]')}
-                    </React.Fragment>
-                  ))
+                  slide.images.map((img, idx) => renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-0'))
                 ) : (
                   renderImageSlot(undefined, 0, 'Klikk for å legge til bilde', 'flex-1 min-h-[160px]')
                 )}
@@ -376,12 +424,17 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {slide.preset === 'prislapp' && (
             <div className="flex-1 flex flex-col justify-between">
               {/* Title & Price Big Stat */}
-              {(slide.title || slide.priceValue) && (
+              {(slide.superTitle || slide.title || slide.priceValue) && (
                 <div
                   className={`mb-3 ${
                     slide.titleAlign === 'center' ? 'text-center' : 'text-left'
                   }`}
                 >
+                  {slide.superTitle && (
+                    <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
+                      {slide.superTitle}
+                    </p>
+                  )}
                   {slide.title && (
                     <h2
                       className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
@@ -406,7 +459,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               )}
 
               {/* Main Illustration/Photo */}
-              {renderImageSlot(slide.images[0], 0, 'Last opp illustrasjon / bilde (valgfritt)', 'flex-1 min-h-[160px]')}
+              {renderImageGallery(slide.images, 'Last opp illustrasjon / bilde (valgfritt)', 'flex-1 min-h-0')}
 
               {slide.sourceCredit && (
                 <div className="mt-2 text-right">
@@ -456,24 +509,31 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {slide.preset === 'undertekst' && (
             <div className="flex-1 flex flex-col justify-between">
               {/* Top Headline */}
-              {slide.title && (
+              {(slide.superTitle || slide.title) && (
                 <div
                   className={`mb-2.5 ${
                     slide.titleAlign === 'center' ? 'text-center' : 'text-left'
                   }`}
                 >
-                  <h2
-                    className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                      slide.titleSize
-                    )}`}
-                  >
-                    {slide.title}
-                  </h2>
+                  {slide.superTitle && (
+                    <p className="mb-1 text-[17px] text-stone-900 font-semibold leading-snug">
+                      {slide.superTitle}
+                    </p>
+                  )}
+                  {slide.title && (
+                    <h2
+                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
+                        slide.titleSize
+                      )}`}
+                    >
+                      {slide.title}
+                    </h2>
+                  )}
                 </div>
               )}
 
               {/* Photo */}
-              {renderImageSlot(slide.images[0], 0, 'Last opp bilde her', 'flex-1 min-h-[160px]')}
+              {renderImageGallery(slide.images, 'Last opp bilde her', 'flex-1 min-h-0')}
 
               {/* Subtitle / Caption Underneath */}
               {slide.subtitle && (
@@ -498,12 +558,17 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {slide.preset === 'meme' && (
             <div className="flex-1 flex flex-col justify-between">
               {/* Meme Title */}
-              {(slide.title || slide.subtitle) && (
+              {(slide.superTitle || slide.title || slide.subtitle) && (
                 <div
                   className={`mb-3 ${
                     slide.titleAlign === 'center' ? 'text-center' : 'text-left'
                   }`}
                 >
+                  {slide.superTitle && (
+                    <p className="mb-1 text-[17px] font-bold text-stone-800 whitespace-pre-line leading-tight">
+                      {slide.superTitle}
+                    </p>
+                  )}
                   {slide.title && (
                     <h2
                       className={`font-bold text-stone-900 leading-tight ${
@@ -523,7 +588,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
               {/* Image Container with Yellow Reality Tag, Gru Tag & Speech Bubble */}
               <div className="relative flex-1 flex flex-col min-h-[180px]">
-                {renderImageSlot(slide.images[0], 0, 'Last opp meme/bygningsbilde', 'flex-1')}
+                {renderImageGallery(slide.images, 'Last opp meme/bygningsbilde', 'flex-1 min-h-0')}
 
                 {/* Yellow Reality Tag */}
                 {(slide.showRealityTag || slide.headingTag) && (
@@ -560,19 +625,26 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {/* 8. PRESET: SIDE BY SIDE SAMMENLIGNING */}
           {slide.preset === 'side_by_side' && (
             <div className="flex-1 flex flex-col justify-between">
-              {slide.title && (
+              {(slide.superTitle || slide.title) && (
                 <div
                   className={`mb-3 ${
                     slide.titleAlign === 'center' ? 'text-center' : 'text-left'
                   }`}
                 >
-                  <h2
-                    className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                      slide.titleSize
-                    )}`}
-                  >
-                    {slide.title}
-                  </h2>
+                  {slide.superTitle && (
+                    <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
+                      {slide.superTitle}
+                    </p>
+                  )}
+                  {slide.title && (
+                    <h2
+                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
+                        slide.titleSize
+                      )}`}
+                    >
+                      {slide.title}
+                    </h2>
+                  )}
                 </div>
               )}
 
@@ -582,13 +654,13 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                   <p className="text-[13px] font-bold text-stone-800 mb-1 truncate">
                     {slide.images[0]?.caption || 'Bilde 1'}
                   </p>
-                  {renderImageSlot(slide.images[0], 0, 'Last opp bilde 1', 'flex-1 min-h-[120px]')}
+                  {renderImageSlot(slide.images[0], 0, 'Last opp bilde 1', 'flex-1 min-h-0')}
                 </div>
                 <div className="flex flex-col h-full">
                   <p className="text-[13px] font-bold text-stone-800 mb-1 truncate">
                     {slide.images[1]?.caption || 'Bilde 2'}
                   </p>
-                  {renderImageSlot(slide.images[1], 1, 'Last opp bilde 2', 'flex-1 min-h-[120px]')}
+                  {renderImageSlot(slide.images[1], 1, 'Last opp bilde 2', 'flex-1 min-h-0')}
                 </div>
               </div>
             </div>

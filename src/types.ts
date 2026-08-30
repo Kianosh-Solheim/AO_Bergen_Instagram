@@ -108,6 +108,7 @@ export interface SlideImage {
   positionY?: number;   // 0 to 100
   positionX?: number;   // 0 to 100
   labelTag?: string;    // F.eks. "Gru sitt hus | Despicable me" eller "Møllendalsveien 1C"
+  signText?: string;    // Skilt tekst som vises underst i selve bildet
 }
 
 export interface SpeechBubbleConfig {
@@ -121,6 +122,7 @@ export interface SpeechBubbleConfig {
 export interface Slide {
   id: string;
   preset: SlidePresetType;
+  superTitle?: string;
   title: string;               // F.eks. "Her skal det bygges..", "Kondolerer, Bergen"
   subtitle?: string;            // F.eks. "Inne på riktig spor, men gått seg vill på veien?"
   headingTag?: string;          // F.eks. "rEAliTy:", "Prislapp:"
@@ -134,6 +136,7 @@ export interface Slide {
   titleAlign: 'center' | 'left' | 'right';
   titleSize: 'sm' | 'md' | 'lg' | 'xl';
   spacingGap: 'tight' | 'normal' | 'relaxed';
+  galleryLayout?: 'vertical' | 'horizontal' | 'grid'; // Layout for flerbilde
   images: SlideImage[];
   speechBubble?: SpeechBubbleConfig;
   showRealityTag?: boolean;

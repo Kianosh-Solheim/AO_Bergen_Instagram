@@ -253,6 +253,20 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             {slide.preset !== 'fra_til' && slide.preset !== 'sitat' && (
               <div className="space-y-3 pt-2 border-t border-stone-200">
                 <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Overoverskrift (valgfritt)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="F.eks. «Nytt varsel:»"
+                    value={slide.superTitle || ''}
+                    onChange={(e) =>
+                      onUpdateSlide({ ...slide, superTitle: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-stone-700">
                       Overskrift (Agrandir font)
@@ -384,6 +398,50 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     }
                     className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
+                </div>
+              </div>
+            )}
+
+            {/* Layout selector for Flerbilde / Gallery */}
+            {(slide.preset === 'flerbilde' || slide.images.length > 1) && (
+              <div className="space-y-3 pt-2 border-t border-stone-200">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                  Bildeoppsett (Fotovegg/Galleri)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSlide({ ...slide, galleryLayout: 'vertical' })}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold border ${
+                      (!slide.galleryLayout || slide.galleryLayout === 'vertical') 
+                        ? 'border-purple-600 bg-purple-50 text-purple-700' 
+                        : 'border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    Stablet (Vertikal)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSlide({ ...slide, galleryLayout: 'horizontal' })}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold border ${
+                      slide.galleryLayout === 'horizontal' 
+                        ? 'border-purple-600 bg-purple-50 text-purple-700' 
+                        : 'border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    Side-om-side
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSlide({ ...slide, galleryLayout: 'grid' })}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold border ${
+                      slide.galleryLayout === 'grid' 
+                        ? 'border-purple-600 bg-purple-50 text-purple-700' 
+                        : 'border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    Rutenett (Fotovegg)
+                  </button>
                 </div>
               </div>
             )}
