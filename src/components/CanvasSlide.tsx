@@ -163,7 +163,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               transform: `scale(${img.zoom || 1})`,
               objectPosition: `${img.positionX ?? 50}% ${img.positionY ?? 50}%`,
             }}
-            crossOrigin="anonymous"
+            
           />
           {img.credit && (
             <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white/95 text-[9px] px-2 py-0.5 rounded font-normal">
