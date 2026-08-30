@@ -656,6 +656,19 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
     }
   }, [img?.positionX, img?.positionY]);
 
+  
+  
+  const getProxiedUrl = (url: string | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('data:')) return url;
+    if (url.startsWith('blob:')) return url;
+    if (url.includes('api.allorigins.win')) return url;
+    if (url.includes('images.unsplash.com')) return url; // Unsplash is already CORS friendly
+    
+    // Use our own backend proxy!
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  };
+
   const hasImage = Boolean(img?.url);
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -811,7 +824,8 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
       title={isDragMode ? "Dra for å flytte, scroll for å zoome" : "Klikk for meny"}
     >
       <img
-        src={img.url}
+        src={getProxiedUrl(img.url)}
+        crossOrigin="anonymous"
         alt={img.caption || slide.title || 'Slide bilde'}
         className="w-full h-full object-cover"
         style={{

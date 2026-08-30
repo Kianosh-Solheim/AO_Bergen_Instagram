@@ -7,10 +7,9 @@ const getProxiedUrlCode = `
     if (url.startsWith('data:')) return url;
     if (url.startsWith('blob:')) return url;
     if (url.includes('api.allorigins.win')) return url;
-    if (url.includes('images.unsplash.com')) return url; // Unsplash is already CORS friendly
+    if (url.includes('images.unsplash.com')) return url;
     
-    // Use our own backend proxy!
-    return \`/api/proxy-image?url=\${encodeURIComponent(url)}\`;
+    return \`https://api.allorigins.win/raw?url=\${encodeURIComponent(url)}\`;
   };
 `;
 

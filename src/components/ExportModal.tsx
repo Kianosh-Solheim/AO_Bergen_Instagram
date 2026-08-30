@@ -52,17 +52,32 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       // pixelRatio 4 makes it ultra 2160x2700.
       const pixelRatio = resolution === '2160' ? 4 : 2;
 
-      const dataUrl = await toPng(activeSlideRef.current, {
-                pixelRatio,
-        quality: 0.98,
-        useCORS: true,
-        filter: (node) => {
-          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
-            return false;
-          }
-          return true;
-        },
+      
+      // Fjern midlertidig Google Fonts lenke for å unngå CORS-krasj i html-to-image
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
       });
+
+      let exportResult;
+      try {
+        exportResult = await toPng(activeSlideRef.current, {
+          pixelRatio,
+          quality: 0.98,
+          useCORS: true,
+        });
+      } finally {
+        // Gjenopprett lenken
+        fontLinks.forEach(link => {
+          if (link.getAttribute('data-href')) {
+            link.setAttribute('href', link.getAttribute('data-href'));
+            link.removeAttribute('data-href');
+          }
+        });
+      }
+
+const dataUrl = exportResult;
 
       const link = document.createElement('a');
       const safeTitle = (currentSlide.title || `slide_${activeSlideIndex + 1}`)
@@ -89,12 +104,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 pixelRatio: 2,
         quality: 0.95,
         useCORS: true,
-        filter: (node) => {
-          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
-            return false;
-          }
-          return true;
-        },
+        
       });
       if (blob && navigator.clipboard && (window as any).ClipboardItem) {
         await navigator.clipboard.write([
@@ -118,18 +128,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const zip = new JSZip();
       const pixelRatio = resolution === '2160' ? 4 : 2;
 
+      
+      // Remove Google fonts link temporarily to avoid html-to-image cssRules CORS crash
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
+      });
+
       // Capture currently mounted slide
       const currentDataUrl = await toPng(activeSlideRef.current, {
-                pixelRatio,
+        pixelRatio,
         quality: 0.98,
         useCORS: true,
-        filter: (node) => {
-          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
-            return false;
-          }
-          return true;
-        },
       });
+      
+      // Restore links
+      fontLinks.forEach(link => {
+        link.setAttribute('href', link.getAttribute('data-href'));
+      });
+
       const base64Data = currentDataUrl.split(',')[1];
       const fileName = `slide_${String(activeSlideIndex + 1).padStart(2, '0')}_${(
         currentSlide.title || currentSlide.preset
@@ -149,7 +167,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
     } catch (err) {
       console.error('Kunne ikke lage ZIP:', err);
-      alert('Eksport feilet (ZIP)! Dette skjer vanligvis hvis du har limt inn en bilde-lenke (URL) fra en nettside som blokkerer nedlasting (CORS). LØSNING: Lagre bildet på maskinen din og bruk "Last opp"-knappen. \n\nTeknisk feil: ' + (err.message || err));
+      
+      let errMsg = err.message || err;
+      if (err instanceof Event) {
+        errMsg = "CORS-blokkering eller nettverksfeil ved nedlasting av bilde (Event)";
+      } else if (typeof err === 'object' && err.type === 'error') {
+        errMsg = "Nettleseren blokkerte bildet. Prøv 'Last opp' knappen i stedet.";
+      }
+      
+      alert('Eksport feilet (ZIP)!\n\nDette skjer fordi du har limt inn en lenke til et bilde (URL) som er beskyttet mot nedlasting.\n\n💯 LØSNING: For at det alltid skal fungere 100%, må du høyreklikke på bildet på nettsiden, velge "Lagre bilde som...", og så bruke "Last opp"-knappen her inne!\n\nTeknisk feil: ' + errMsg);
+
     } finally {
       setIsExportingAll(false);
       if (onExportSuccess) onExportSuccess();
