@@ -1,12 +1,12 @@
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore';
-import { InstagramProject } from '../types';
+import { CarouselProject } from '../types';
 
 export interface SavedProject {
   id: string;
   userId: string;
   title: string;
-  data: string; // JSON string of InstagramProject
+  data: string; // JSON string of CarouselProject
   status: 'draft' | 'published';
   createdAt: any;
   updatedAt: any;
@@ -14,7 +14,7 @@ export interface SavedProject {
 
 const COLLECTION_NAME = 'projects';
 
-export const saveProject = async (userId: string, project: InstagramProject, status: 'draft' | 'published' = 'draft', existingId?: string) => {
+export const saveProject = async (userId: string, project: CarouselProject, status: 'draft' | 'published' = 'draft', existingId?: string) => {
   const projectData = {
     userId,
     title: project.title || 'Uten tittel',

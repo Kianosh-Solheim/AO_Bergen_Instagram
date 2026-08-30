@@ -150,4 +150,5 @@ export interface CarouselProject {
   instagramLocation: string;
   caption: string;
   hashtags: string;
+  agrandirVariant?: string;
 }

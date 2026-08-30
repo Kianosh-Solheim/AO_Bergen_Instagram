@@ -22,7 +22,10 @@ import {
   HelpCircle,
 } from 'lucide-react';
 
+import { CarouselProject } from "../types";
 interface EditorSidebarProps {
+  project?: CarouselProject;
+  onUpdateProject?: (project: CarouselProject) => void;
   slide?: Slide;
   onUpdateSlide: (updatedSlide: Slide) => void;
   onUpdateAllSlidesBgColor?: (hex: string) => void;
@@ -35,6 +38,8 @@ interface EditorSidebarProps {
 }
 
 export const EditorSidebar: React.FC<EditorSidebarProps> = ({
+  project,
+  onUpdateProject,
   slide,
   onUpdateSlide,
   onUpdateAllSlidesBgColor,
@@ -679,6 +684,32 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   </p>
                 </button>
               </div>
+              
+              {/* Agrandir Version Selector */}
+              {project && onUpdateProject && (
+                <div className="mt-3">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-2 block">
+                    Agrandir Versjon (Gjelder hele malen)
+                  </label>
+                  <select
+                    value={project.agrandirVariant || 'Agrandir-Regular'}
+                    onChange={(e) =>
+                      onUpdateProject({ ...project, agrandirVariant: e.target.value })
+                    }
+                    className="w-full p-2 text-sm border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
+                  >
+                    <option value="Agrandir-Regular">Agrandir Regular (Standard)</option>
+                    <option value="Agrandir-TextBold">Agrandir TextBold</option>
+                    <option value="Agrandir-GrandLight">Agrandir GrandLight</option>
+                    <option value="Agrandir-GrandHeavy">Agrandir GrandHeavy</option>
+                    <option value="Agrandir-Narrow">Agrandir Narrow</option>
+                    <option value="Agrandir-ThinItalic">Agrandir ThinItalic</option>
+                    <option value="Agrandir-Tight">Agrandir Tight</option>
+                    <option value="Agrandir-WideBlackItalic">Agrandir WideBlackItalic</option>
+                    <option value="Agrandir-WideLight">Agrandir WideLight</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Typography Alignment & Sizing */}

@@ -5,7 +5,6 @@ import { loginWithGoogle, logout, auth } from './lib/firebase';
 import { saveProject, SavedProject } from './lib/projectService';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { LibraryModal } from './components/LibraryModal';
-import { LogOut, Save, Library } from 'lucide-react';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { EditorSidebar } from './components/EditorSidebar';
 import { SlideStrip } from './components/SlideStrip';
@@ -74,6 +73,11 @@ export default function App() {
   // Persist project changes to local storage
   useEffect(() => {
     localStorage.setItem('ao_instagram_project', JSON.stringify(project));
+    if (project.agrandirVariant) {
+      document.documentElement.style.setProperty('--font-agrandir', `"${project.agrandirVariant}", "Plus Jakarta Sans", "Outfit", sans-serif`);
+    } else {
+      document.documentElement.style.setProperty('--font-agrandir', '"Agrandir-Regular", "Plus Jakarta Sans", "Outfit", sans-serif');
+    }
   }, [project]);
 
   // Ensure activeSlideIndex stays valid
@@ -355,6 +359,8 @@ export default function App() {
 
         {/* Right Editor Controls Sidebar */}
         <EditorSidebar
+          project={project}
+          onUpdateProject={setProject}
           slide={currentSlide}
           onUpdateSlide={handleUpdateSlide}
           onUpdateAllSlidesBgColor={handleUpdateAllSlidesBgColor}
