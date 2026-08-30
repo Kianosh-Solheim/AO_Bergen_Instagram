@@ -55,7 +55,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const dataUrl = await toPng(activeSlideRef.current, {
         pixelRatio,
         quality: 0.98,
-        cacheBust: true,
+        useCORS: true,
       });
 
       const link = document.createElement('a');
@@ -67,6 +67,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
     } catch (err) {
       console.error('Kunne ikke eksportere bilde:', err);
+      alert('Det oppstod en feil under eksport (PNG): ' + (err.message || err));
     } finally {
       setIsExportingSingle(false);
       if (onExportSuccess) onExportSuccess();
@@ -108,6 +109,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const currentDataUrl = await toPng(activeSlideRef.current, {
         pixelRatio,
         quality: 0.98,
+        useCORS: true,
       });
       const base64Data = currentDataUrl.split(',')[1];
       const fileName = `slide_${String(activeSlideIndex + 1).padStart(2, '0')}_${(
@@ -128,6 +130,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
     } catch (err) {
       console.error('Kunne ikke lage ZIP:', err);
+      alert('Det oppstod en feil under eksport (ZIP): ' + (err.message || err));
     } finally {
       setIsExportingAll(false);
       if (onExportSuccess) onExportSuccess();

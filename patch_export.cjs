@@ -1,19 +1,19 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/App.tsx', 'utf8');
+let code = fs.readFileSync('src/components/ExportModal.tsx', 'utf8');
 
 code = code.replace(
-  /<ExportModal\s+isOpen=\{isExportOpen\}/,
-  `<ExportModal
-        isOpen={isExportOpen}
-        onExportSuccess={async () => {
-          if (!user) return;
-          try {
-            const id = await saveProject(user.uid, project, 'published', currentProjectId || undefined);
-            setCurrentProjectId(id);
-            // Optional: alert('Prosjekt markert som publisert!');
-          } catch (e) {
-            console.error('Kunne ikke markere som publisert', e);
-          }
-        }}`
+  /const dataUrl = await toPng\(activeSlideRef\.current, \{\n\s*pixelRatio,\n\s*quality: 0\.98,\n\s*cacheBust: true,\n\s*\}\);/g,
+  `const dataUrl = await toPng(activeSlideRef.current, {
+        pixelRatio,
+        quality: 0.98,
+        useCORS: true,
+      });`
 );
-fs.writeFileSync('src/App.tsx', code);
+
+code = code.replace(
+  /console\.error\('Kunne ikke eksportere bilde:', err\);/g,
+  `console.error('Kunne ikke eksportere bilde:', err);
+      alert('Det oppstod en feil under eksport (PNG): ' + (err.message || err));`
+);
+
+fs.writeFileSync('src/components/ExportModal.tsx', code);
