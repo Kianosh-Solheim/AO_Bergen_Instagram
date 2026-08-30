@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Slide, CarouselProject } from '../types';
+import { CanvasSlide } from './CanvasSlide';
 import { toPng, toBlob } from 'html-to-image';
 import JSZip from 'jszip';
 import {
@@ -35,6 +36,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const [isExportingSingle, setIsExportingSingle] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
+  const [exportRenderIndex, setExportRenderIndex] = useState<number | null>(null);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedImageSuccess, setCopiedImageSuccess] = useState(false);
@@ -63,9 +65,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       let exportResult;
       try {
         exportResult = await toPng(activeSlideRef.current, {
-          pixelRatio,
-          quality: 0.98,
-          useCORS: true,
+          pixelRatio, quality: 0.98, useCORS: true, cacheBust: true,
         });
       } finally {
         // Gjenopprett lenken
@@ -97,24 +97,44 @@ const dataUrl = exportResult;
 
   // Copy current slide image directly to clipboard
   const handleCopyImage = async () => {
-    if (!activeSlideRef.current) return;
+    const exportSlide = document.getElementById(`export-slide-${activeSlideIndex}`);
+    if (!exportSlide) return;
+
     setIsCopyingImage(true);
     try {
-      const blob = await toBlob(activeSlideRef.current, {
-                pixelRatio: 2,
-        quality: 0.95,
-        useCORS: true,
-        
+      const pixelRatio = resolution === '2160' ? 4 : 2;
+
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
       });
-      if (blob && navigator.clipboard && (window as any).ClipboardItem) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob }),
-        ]);
-        setCopiedImageSuccess(true);
-        setTimeout(() => setCopiedImageSuccess(false), 2500);
+
+      let blob;
+      try {
+        blob = await toBlob(exportSlide, {
+          pixelRatio, quality: 0.98, useCORS: true, cacheBust: true,
+        });
+      } finally {
+        fontLinks.forEach(link => {
+          if (link.getAttribute('data-href')) {
+            link.setAttribute('href', link.getAttribute('data-href') || '');
+            link.removeAttribute('data-href');
+          }
+        });
       }
-    } catch (err) {
+
+      if (!blob) throw new Error('Kunne ikke generere bilde');
+      
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      
+      setCopiedImageSuccess(true);
+      setTimeout(() => setCopiedImageSuccess(false), 3000);
+    } catch (err: any) {
       console.error('Kopiering feilet:', err);
+      alert('Kunne ikke kopiere bildet. Sjekk at nettleseren din støtter utklippstavle-kopiering av bilder.');
     } finally {
       setIsCopyingImage(false);
     }
@@ -122,12 +142,11 @@ const dataUrl = exportResult;
 
   // Export entire carousel as a ZIP
   const handleDownloadAllZip = async () => {
-    if (!activeSlideRef.current) return;
     setIsExportingAll(true);
+    await new Promise(r => setTimeout(r, 500));
     try {
       const zip = new JSZip();
       const pixelRatio = resolution === '2160' ? 4 : 2;
-
       
       // Remove Google fonts link temporarily to avoid html-to-image cssRules CORS crash
       const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
@@ -136,50 +155,59 @@ const dataUrl = exportResult;
         link.removeAttribute('href');
       });
 
-      // Capture currently mounted slide
-      const currentDataUrl = await toPng(activeSlideRef.current, {
-        pixelRatio,
-        quality: 0.98,
-        useCORS: true,
-      });
-      
+      for (let i = 0; i < project.slides.length; i++) {
+        setExportRenderIndex(i);
+        await new Promise(r => setTimeout(r, 400));
+        const slideElement = document.getElementById(`export-slide-${i}`);
+        if (!slideElement) continue;
+
+        const currentDataUrl = await toPng(slideElement, {
+          pixelRatio, quality: 0.98, useCORS: true, cacheBust: true,
+        });
+
+        const base64Data = currentDataUrl.split(',')[1];
+        const currentSlide = project.slides[i];
+        const fileName = `slide_${String(i + 1).padStart(2, '0')}_${(
+          currentSlide.title || currentSlide.preset
+        )
+          .slice(0, 20)
+          .replace(/[^a-z0-9]/gi, '_')}.png`;
+        
+        zip.file(fileName, base64Data, { base64: true });
+        await new Promise(r => setTimeout(r, 100));
+      }
+
       // Restore links
       fontLinks.forEach(link => {
-        link.setAttribute('href', link.getAttribute('data-href'));
+        link.setAttribute('href', link.getAttribute('data-href') || '');
       });
-
-      const base64Data = currentDataUrl.split(',')[1];
-      const fileName = `slide_${String(activeSlideIndex + 1).padStart(2, '0')}_${(
-        currentSlide.title || currentSlide.preset
-      )
-        .slice(0, 20)
-        .replace(/[^a-z0-9]/gi, '_')}.png`;
-      zip.file(fileName, base64Data, { base64: true });
 
       // Add text caption file
       const captionText = `${project.caption}\n\n${project.hashtags}`;
       zip.file('instagram_caption.txt', captionText);
 
+      setExportRenderIndex(null);
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const link = document.createElement('a');
-      link.download = `ao_karusell_${project.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_1080x1350.zip`;
       link.href = URL.createObjectURL(zipBlob);
+      link.download = `${project.title.replace(/[^a-z0-9]/gi, '_')}_instagram_export.zip`;
+      document.body.appendChild(link);
       link.click();
-    } catch (err) {
-      console.error('Kunne ikke lage ZIP:', err);
+      document.body.removeChild(link);
       
-      let errMsg = err.message || err;
+      if (onExportSuccess) {
+        onExportSuccess();
+      }
+    } catch (err: any) {
+      console.error('Kunne ikke lage ZIP:', err);
+      let errMsg = err?.message || String(err);
       if (err instanceof Event) {
         errMsg = "CORS-blokkering eller nettverksfeil ved nedlasting av bilde (Event)";
-      } else if (typeof err === 'object' && err.type === 'error') {
-        errMsg = "Nettleseren blokkerte bildet. Prøv 'Last opp' knappen i stedet.";
       }
-      
-      alert('Eksport feilet (ZIP)!\n\nDette skjer fordi du har limt inn en lenke til et bilde (URL) som er beskyttet mot nedlasting.\n\n💯 LØSNING: For at det alltid skal fungere 100%, må du høyreklikke på bildet på nettsiden, velge "Lagre bilde som...", og så bruke "Last opp"-knappen her inne!\n\nTeknisk feil: ' + errMsg);
-
+      alert('Eksport feilet (ZIP)!\n\nDette skjer ofte pga beskyttede bilder.\nTeknisk feil: ' + errMsg);
     } finally {
       setIsExportingAll(false);
-      if (onExportSuccess) onExportSuccess();
+      setExportRenderIndex(null);
     }
   };
 
@@ -381,6 +409,29 @@ const dataUrl = exportResult;
           </button>
         </div>
       </div>
-    </div>
+    
+        {/* Hidden container to render all slides for Export */}
+        <div style={{ position: 'fixed', left: '-10000px', top: '-10000px', pointerEvents: 'none' }}>
+          {project.slides.map((slide, index) => {
+            const shouldRender = isExportingAll 
+              ? exportRenderIndex === index 
+              : activeSlideIndex === index;
+            if (!shouldRender) return null;
+            return (
+              <div key={slide.id} id={`export-slide-${index}`} style={{ width: '540px', height: '675px' }}>
+                <CanvasSlide
+                  slide={slide}
+                  showPurpleGuide={false}
+                  showInstagramUi={false}
+                  instagramHandle={project.instagramHandle}
+                  instagramLocation={project.instagramLocation}
+                  scale={1}
+                  interactive={false}
+                />
+              </div>
+            );
+          })}
+        </div>
+</div>
   );
 };

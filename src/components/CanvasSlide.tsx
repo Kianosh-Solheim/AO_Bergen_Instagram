@@ -658,15 +658,17 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
 
   
   
+  
+  
   const getProxiedUrl = (url: string | undefined) => {
     if (!url) return '';
     if (url.startsWith('data:')) return url;
     if (url.startsWith('blob:')) return url;
-    if (url.includes('api.allorigins.win')) return url;
+    if (url.includes('wsrv.nl')) return url;
     if (url.includes('images.unsplash.com')) return url; // Unsplash is already CORS friendly
     
-    // Use our own backend proxy!
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    // Bruk wsrv.nl som en pålitelig bilde-proxy for statiske sider (siden Github Pages ikke kjører Node.js backend)
+    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
   };
 
   const hasImage = Boolean(img?.url);

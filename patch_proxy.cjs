@@ -6,17 +6,16 @@ const getProxiedUrlCode = `
     if (!url) return '';
     if (url.startsWith('data:')) return url;
     if (url.startsWith('blob:')) return url;
-    if (url.includes('api.allorigins.win')) return url;
-    if (url.includes('images.unsplash.com')) return url;
+    if (url.includes('wsrv.nl')) return url;
+    if (url.includes('images.unsplash.com')) return url; // Unsplash is already CORS friendly
     
-    return \`https://api.allorigins.win/raw?url=\${encodeURIComponent(url)}\`;
+    // Bruk wsrv.nl som en pålitelig bilde-proxy for statiske sider (siden Github Pages ikke kjører Node.js backend)
+    return \`https://wsrv.nl/?url=\${encodeURIComponent(url)}\`;
   };
 `;
 
-// Insert it before handlePointerDown
 code = code.replace(/const hasImage = Boolean\(img\?\.url\);/g, getProxiedUrlCode + '\n  const hasImage = Boolean(img?.url);');
 
-// Replace the img tag
 code = code.replace(
   /<img\n\s*src=\{img\.url\}\n\s*alt=\{img\.caption \|\| slide\.title \|\| 'Slide bilde'\}/g,
   `<img

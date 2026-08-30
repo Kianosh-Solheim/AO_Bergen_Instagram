@@ -1,35 +1,45 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/components/CanvasSlide.tsx', 'utf8');
+let code = fs.readFileSync('src/components/ExportModal.tsx', 'utf8');
 
-const lines = code.split('\n');
-const start = 146; // 1-based index 146 is array index 145
-const end = 228; // array index 227
+const oldBlock = `{/* Hidden container to render all slides for Export */}
+        <div style={{ position: 'fixed', left: '-10000px', top: '-10000px', pointerEvents: 'none' }}>
+          {project.slides.map((slide, index) => (
+            <div key={slide.id} id={\`export-slide-\${index}\`} style={{ width: '540px', height: '675px' }}>
+              <CanvasSlide
+                slide={slide}
+                showPurpleGuide={false}
+                showInstagramUi={false}
+                instagramHandle={project.instagramHandle}
+                instagramLocation={project.instagramLocation}
+                scale={1}
+                interactive={false}
+              />
+            </div>
+          ))}
+        </div>`;
 
-const newRender = `  const renderImageSlot = (
-    img: SlideImage | undefined,
-    index: number,
-    placeholderLabel = 'Last opp bilde (valgfritt)',
-    customHeightClass = 'flex-1'
-  ) => {
-    return (
-      <InteractiveImageSlot
-        key={img?.id || \`slot-\$\{index\}\`}
-        img={img}
-        index={index}
-        slide={slide}
-        placeholderLabel={placeholderLabel}
-        customHeightClass={customHeightClass}
-        interactive={interactive}
-        onOpenImageModal={onOpenImageModal}
-        onUpdateSlide={onUpdateSlide}
-      />
-    );
-  };`;
+const newBlock = `{/* Hidden container to render all slides for Export */}
+        <div style={{ position: 'fixed', left: '-10000px', top: '-10000px', pointerEvents: 'none' }}>
+          {project.slides.map((slide, index) => {
+            const shouldRender = isExportingAll 
+              ? exportRenderIndex === index 
+              : activeSlideIndex === index;
+            if (!shouldRender) return null;
+            return (
+              <div key={slide.id} id={\`export-slide-\${index}\`} style={{ width: '540px', height: '675px' }}>
+                <CanvasSlide
+                  slide={slide}
+                  showPurpleGuide={false}
+                  showInstagramUi={false}
+                  instagramHandle={project.instagramHandle}
+                  instagramLocation={project.instagramLocation}
+                  scale={1}
+                  interactive={false}
+                />
+              </div>
+            );
+          })}
+        </div>`;
 
-const newLines = [
-  ...lines.slice(0, 145),
-  newRender,
-  ...lines.slice(228)
-];
-
-fs.writeFileSync('src/components/CanvasSlide.tsx', newLines.join('\n'));
+code = code.replace(oldBlock, newBlock);
+fs.writeFileSync('src/components/ExportModal.tsx', code);

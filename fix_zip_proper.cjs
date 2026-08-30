@@ -1,24 +1,12 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/components/ExportModal.tsx', 'utf8');
 
-// The original zip function looks like this:
-//   const handleDownloadAllZip = async () => {
-//     if (!activeSlideRef.current) return;
-//     setIsExportingAll(true);
-//     ...
-//     zip.file('instagram_caption.txt', captionText);
-//     ...
-//     }
-//   };
+const regex = /const handleDownloadAllZip = async \(\) => \{[\s\S]*?if \(onExportSuccess\) onExportSuccess\(\);\n    \}\n  \};/m;
 
-const oldZipStart = 'const handleDownloadAllZip = async () => {';
-const oldZipEnd = 'setIsExportingAll(false);\n    }\n  };';
+const match = regex.exec(code);
 
-const startIndex = code.indexOf(oldZipStart);
-const endIndex = code.indexOf(oldZipEnd, startIndex) + oldZipEnd.length;
-
-if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-  const newZipFunc = `const handleDownloadAllZip = async () => {
+if (match) {
+  const newFunc = `const handleDownloadAllZip = async () => {
     setIsExportingAll(true);
     try {
       const zip = new JSZip();
@@ -33,10 +21,7 @@ if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
 
       for (let i = 0; i < project.slides.length; i++) {
         const slideElement = document.getElementById(\`export-slide-\${i}\`);
-        if (!slideElement) {
-          console.warn('Could not find slide', i);
-          continue;
-        }
+        if (!slideElement) continue;
 
         const currentDataUrl = await toPng(slideElement, {
           pixelRatio,
@@ -75,17 +60,21 @@ if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
       if (onExportSuccess) {
         onExportSuccess();
       }
-    } catch (error) {
-      console.error('Failed to zip:', error);
-      alert('En feil oppstod under generering av ZIP-filen. Prøv igjen.');
+    } catch (err: any) {
+      console.error('Kunne ikke lage ZIP:', err);
+      let errMsg = err?.message || String(err);
+      if (err instanceof Event) {
+        errMsg = "CORS-blokkering eller nettverksfeil ved nedlasting av bilde (Event)";
+      }
+      alert('Eksport feilet (ZIP)!\\n\\nDette skjer ofte pga beskyttede bilder.\\nTeknisk feil: ' + errMsg);
     } finally {
       setIsExportingAll(false);
     }
   };`;
 
-  code = code.slice(0, startIndex) + newZipFunc + code.slice(endIndex);
+  code = code.replace(regex, newFunc);
   fs.writeFileSync('src/components/ExportModal.tsx', code);
-  console.log('Successfully replaced zip function.');
+  console.log('Successfully patched zip function');
 } else {
-  console.log('Could not find bounds of zip function. Start:', startIndex, 'End:', endIndex);
+  console.log('Could not match zip function with regex.');
 }
