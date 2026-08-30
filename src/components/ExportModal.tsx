@@ -53,9 +53,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const pixelRatio = resolution === '2160' ? 4 : 2;
 
       const dataUrl = await toPng(activeSlideRef.current, {
-        pixelRatio,
+                pixelRatio,
         quality: 0.98,
         useCORS: true,
+        filter: (node) => {
+          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
+            return false;
+          }
+          return true;
+        },
       });
 
       const link = document.createElement('a');
@@ -67,7 +73,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
     } catch (err) {
       console.error('Kunne ikke eksportere bilde:', err);
-      alert('Det oppstod en feil under eksport (PNG): ' + (err.message || err));
+      alert('Eksport feilet! Dette skjer vanligvis hvis du har limt inn en bilde-lenke (URL) fra en annen nettside som blokkerer nedlasting (CORS). LØSNING: Lagre bildet på maskinen din og bruk "Last opp"-knappen i stedet for å lime inn lenken. \n\nTeknisk feil: ' + (err.message || err));
     } finally {
       setIsExportingSingle(false);
       if (onExportSuccess) onExportSuccess();
@@ -80,8 +86,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     setIsCopyingImage(true);
     try {
       const blob = await toBlob(activeSlideRef.current, {
-        pixelRatio: 2,
+                pixelRatio: 2,
         quality: 0.95,
+        useCORS: true,
+        filter: (node) => {
+          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
+            return false;
+          }
+          return true;
+        },
       });
       if (blob && navigator.clipboard && (window as any).ClipboardItem) {
         await navigator.clipboard.write([
@@ -107,9 +120,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
       // Capture currently mounted slide
       const currentDataUrl = await toPng(activeSlideRef.current, {
-        pixelRatio,
+                pixelRatio,
         quality: 0.98,
         useCORS: true,
+        filter: (node) => {
+          if (node.tagName === 'LINK' && node.href && node.href.includes('fonts.googleapis.com')) {
+            return false;
+          }
+          return true;
+        },
       });
       const base64Data = currentDataUrl.split(',')[1];
       const fileName = `slide_${String(activeSlideIndex + 1).padStart(2, '0')}_${(
@@ -130,7 +149,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       link.click();
     } catch (err) {
       console.error('Kunne ikke lage ZIP:', err);
-      alert('Det oppstod en feil under eksport (ZIP): ' + (err.message || err));
+      alert('Eksport feilet (ZIP)! Dette skjer vanligvis hvis du har limt inn en bilde-lenke (URL) fra en nettside som blokkerer nedlasting (CORS). LØSNING: Lagre bildet på maskinen din og bruk "Last opp"-knappen. \n\nTeknisk feil: ' + (err.message || err));
     } finally {
       setIsExportingAll(false);
       if (onExportSuccess) onExportSuccess();
