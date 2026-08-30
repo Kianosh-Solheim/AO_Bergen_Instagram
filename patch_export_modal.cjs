@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState } from 'react';
 import { Slide, CarouselProject } from '../types';
 import { CanvasSlide } from './CanvasSlide';
-import html2canvas from 'html2canvas';
+import { toPng, toBlob } from 'html-to-image';
 import JSZip from 'jszip';
 import {
   Download,
@@ -47,7 +49,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleCopyCaption = async () => {
     try {
       await navigator.clipboard.writeText(
-        `${project.caption}\n\n${project.hashtags}`
+        \`\${project.caption}\\n\\n\${project.hashtags}\`
       );
       setCopiedCaption(true);
       setTimeout(() => setCopiedCaption(false), 2000);
@@ -57,25 +59,38 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const handleDownloadSingle = async () => {
-    const exportSlide = document.getElementById(`export-slide-${activeSlideIndex}`);
+    const exportSlide = document.getElementById(\`export-slide-\${activeSlideIndex}\`);
     if (!exportSlide) return;
     
     setIsExportingSingle(true);
     try {
-      const scale = resolution === '2160' ? 4 : 2;
+      const pixelRatio = resolution === '2160' ? 4 : 2;
       
-      const canvas = await html2canvas(exportSlide, {
-        scale,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
       });
-      
-      const exportResult = canvas.toDataURL('image/png', 0.98);
+
+      let exportResult;
+      try {
+        exportResult = await toPng(exportSlide, {
+          pixelRatio,
+          quality: 0.98,
+          useCORS: true,
+          cacheBust: true,
+        });
+      } finally {
+        fontLinks.forEach(link => {
+          if (link.getAttribute('data-href')) {
+            link.setAttribute('href', link.getAttribute('data-href') || '');
+            link.removeAttribute('data-href');
+          }
+        });
+      }
 
       const link = document.createElement('a');
-      link.download = `slide_${activeSlideIndex + 1}_${currentSlide.title?.slice(0, 20).replace(/[^a-z0-9]/gi, '_') || 'eksport'}.png`;
+      link.download = \`slide_\${activeSlideIndex + 1}_\${currentSlide.title?.slice(0, 20).replace(/[^a-z0-9]/gi, '_') || 'eksport'}.png\`;
       link.href = exportResult;
       document.body.appendChild(link);
       link.click();
@@ -84,33 +99,43 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       if (onExportSuccess) onExportSuccess();
     } catch (err: any) {
       console.error('Kunne ikke eksportere:', err);
-      alert('Eksport feilet!\nTeknisk feil: ' + (err?.message || String(err)));
+      alert('Eksport feilet!\\nTeknisk feil: ' + (err?.message || String(err)));
     } finally {
       setIsExportingSingle(false);
     }
   };
 
   const handleCopyImage = async () => {
-    const exportSlide = document.getElementById(`export-slide-${activeSlideIndex}`);
+    const exportSlide = document.getElementById(\`export-slide-\${activeSlideIndex}\`);
     if (!exportSlide) return;
 
     setIsCopyingImage(true);
     try {
-      const scale = resolution === '2160' ? 4 : 2;
-      
-      const canvas = await html2canvas(exportSlide, {
-        scale,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false
+      const pixelRatio = resolution === '2160' ? 4 : 2;
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
       });
 
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/png', 0.98);
-      });
+      let blob;
+      try {
+        blob = await toBlob(exportSlide, {
+          pixelRatio,
+          quality: 0.98,
+          useCORS: true,
+          cacheBust: true,
+        });
+      } finally {
+        fontLinks.forEach(link => {
+          if (link.getAttribute('data-href')) {
+            link.setAttribute('href', link.getAttribute('data-href') || '');
+            link.removeAttribute('data-href');
+          }
+        });
+      }
 
-      if (!blob) throw new Error('Kunne ikke generere bilde blob');
+      if (!blob) throw new Error('Kunne ikke generere bilde');
       
       await navigator.clipboard.write([
         new ClipboardItem({ 'image/png': blob })
@@ -130,44 +155,51 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     setIsExportingAll(true);
     try {
       const zip = new JSZip();
-      const scale = resolution === '2160' ? 4 : 2;
+      const pixelRatio = resolution === '2160' ? 4 : 2;
       
+      // Remove Google fonts link temporarily to avoid html-to-image cssRules CORS crash
+      const fontLinks = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'));
+      fontLinks.forEach(link => {
+        link.setAttribute('data-href', link.href);
+        link.removeAttribute('href');
+      });
+
       for (let i = 0; i < project.slides.length; i++) {
         setExportRenderIndex(i);
         // Vent lenger slik at nettleseren garantert rekker å laste nye bilder visuelt
         await new Promise(r => setTimeout(r, 1200));
 
-        const slideElement = document.getElementById(`active-export-slide`);
+        const slideElement = document.getElementById(\`active-export-slide\`);
         if (!slideElement) continue;
 
-        const canvas = await html2canvas(slideElement, {
-          scale,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          logging: false
+        const currentDataUrl = await toPng(slideElement, {
+          pixelRatio, quality: 0.98, useCORS: true, cacheBust: true,
         });
 
-        const currentDataUrl = canvas.toDataURL('image/png', 0.98);
         const base64Data = currentDataUrl.split(',')[1];
         const currentSlide = project.slides[i];
-        const fileName = `slide_${String(i + 1).padStart(2, '0')}_${(
+        const fileName = \`slide_\${String(i + 1).padStart(2, '0')}_\${(
           currentSlide.title || currentSlide.preset
         )
           .slice(0, 20)
-          .replace(/[^a-z0-9]/gi, '_')}.png`;
+          .replace(/[^a-z0-9]/gi, '_')}.png\`;
         
         zip.file(fileName, base64Data, { base64: true });
       }
 
+      // Restore links
+      fontLinks.forEach(link => {
+        link.setAttribute('href', link.getAttribute('data-href') || '');
+      });
+
       // Add text caption file
-      const captionText = `${project.caption}\n\n${project.hashtags}`;
+      const captionText = \`\${project.caption}\\n\\n\${project.hashtags}\`;
       zip.file('instagram_caption.txt', captionText);
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(zipBlob);
-      link.download = `${project.title.replace(/[^a-z0-9]/gi, '_')}_instagram_export.zip`;
+      link.download = \`\${project.title.replace(/[^a-z0-9]/gi, '_')}_instagram_export.zip\`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -181,7 +213,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       if (err instanceof Event) {
         errMsg = "CORS-blokkering eller nettverksfeil ved nedlasting av bilde (Event)";
       }
-      alert('Eksport feilet (ZIP)!\n\nDette skjer ofte pga beskyttede bilder.\nTeknisk feil: ' + errMsg);
+      alert('Eksport feilet (ZIP)!\\n\\nDette skjer ofte pga beskyttede bilder.\\nTeknisk feil: ' + errMsg);
     } finally {
       setIsExportingAll(false);
       setExportRenderIndex(null);
@@ -205,9 +237,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </p>
         </div>
         
-        {/* We use scale-75 so it fits neatly on screen, but html2canvas exports it at full 540x675 */}
+        {/* We use scale-75 so it fits neatly on screen, but html-to-image exports it at full 540x675 */}
         <div className="relative border-2 border-stone-600 rounded-xl overflow-hidden shadow-2xl transition-all scale-75 sm:scale-90 origin-top">
-          <div key={`export-render-key-${exportRenderIndex}`} id="active-export-slide" style={{ width: '540px', height: '675px' }} className="bg-white">
+          <div id="active-export-slide" style={{ width: '540px', height: '675px' }} className="bg-white">
             <CanvasSlide
               slide={slideToRender}
               showPurpleGuide={false}
@@ -266,22 +298,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={() => setResolution('1080')}
-                className={`px-3 py-1 rounded-md transition-all ${
+                className={\`px-3 py-1 rounded-md transition-all \${
                   resolution === '1080'
                     ? 'bg-stone-900 text-white shadow-2xs'
                     : 'text-stone-600 hover:text-stone-900'
-                }`}
+                }\`}
               >
                 1080×1350 (Standard)
               </button>
               <button
                 type="button"
                 onClick={() => setResolution('2160')}
-                className={`px-3 py-1 rounded-md transition-all ${
+                className={\`px-3 py-1 rounded-md transition-all \${
                   resolution === '2160'
                     ? 'bg-stone-900 text-white shadow-2xs'
                     : 'text-stone-600 hover:text-stone-900'
-                }`}
+                }\`}
               >
                 2160×2700 (Ultra HD)
               </button>
@@ -424,7 +456,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       {/* Fallback container for single slide export if needed */}
       {!isExportingAll && (
         <div style={{ position: 'fixed', left: '-10000px', top: '-10000px', pointerEvents: 'none' }}>
-           <div id={`export-slide-${activeSlideIndex}`} style={{ width: '540px', height: '675px' }} className="bg-white">
+           <div id={\`export-slide-\${activeSlideIndex}\`} style={{ width: '540px', height: '675px' }}>
               <CanvasSlide
                 slide={project.slides[activeSlideIndex]}
                 showPurpleGuide={false}
@@ -440,3 +472,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     </div>
   );
 };
+`;
+
+fs.writeFileSync('src/components/ExportModal.tsx', code);

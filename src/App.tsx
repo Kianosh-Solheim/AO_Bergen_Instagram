@@ -21,6 +21,9 @@ import {
   LogOut,
   Save,
   Library,
+  Edit2,
+  X,
+  Menu,
 } from 'lucide-react';
 
 export default function App() {
@@ -58,6 +61,7 @@ export default function App() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isCarouselPreviewOpen, setIsCarouselPreviewOpen] = useState(false);
   const [isRecipeGuideOpen, setIsRecipeGuideOpen] = useState(false);
+  const [isMobileEditorOpen, setIsMobileEditorOpen] = useState(false);
 
   // Image modal state
   const [editingImage, setEditingImage] = useState<{
@@ -317,7 +321,7 @@ export default function App() {
       {/* Main Workspace (Canvas Area + Sidebar) */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left/Center Canvas Viewport */}
-        <div className="flex-1 flex flex-col justify-between overflow-hidden relative">
+        <div className="flex-1 flex flex-col justify-between overflow-hidden relative min-w-0">
           <CanvasWorkspace
             slide={currentSlide}
             showPurpleGuide={showPurpleGuide}
@@ -363,7 +367,7 @@ export default function App() {
           }
           onAddSlide={(preset) => handleAddSlide(preset)}
         />
-      </div>
+        </div>
 
       {/* MODALS */}
       {/* Library Modal */}
