@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Slide, CarouselProject } from '../types';
 import { CanvasSlide } from './CanvasSlide';
 import { toPng, toBlob } from 'html-to-image';
@@ -46,9 +46,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [copiedImageSuccess, setCopiedImageSuccess] = useState(false);
   const [downloadSuccessMessage, setDownloadSuccessMessage] = useState<string | null>(null);
   const [resolution, setResolution] = useState<'1080' | '2160'>('1080');
-  
-  // For visual step-by-step export
+
+  // Currently rendering slide index for export
   const [exportRenderIndex, setExportRenderIndex] = useState<number | null>(null);
+  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const handleCopyCaption = async () => {
     try {
@@ -62,8 +63,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
-  const renderElementToDataUrl = async (element: HTMLElement, scale: number): Promise<string> => {
-    // Wait for fonts to be ready
+  const waitForElementResources = async (element: HTMLElement): Promise<void> => {
+    // 1. Wait for document fonts
     if (document.fonts && document.fonts.ready) {
       try {
         await document.fonts.ready;
@@ -72,20 +73,42 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       }
     }
 
-    // Wait for images inside the element to load
+    // 2. Wait for all images inside the element to fully load & decode
     const images = Array.from(element.querySelectorAll('img'));
-    await Promise.all(
-      images.map((img) => {
-        if (img.complete && img.naturalHeight !== 0) return Promise.resolve();
-        return new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          setTimeout(resolve, 1200);
-        });
-      })
-    );
+    if (images.length > 0) {
+      await Promise.all(
+        images.map(async (img) => {
+          if (!img.src) return;
+          if (img.complete && img.naturalHeight !== 0) {
+            try {
+              if (img.decode) await img.decode();
+            } catch (e) {
+              // Ignore decode errors on tainted images
+            }
+            return;
+          }
+          await new Promise<void>((resolve) => {
+            const onFinish = async () => {
+              try {
+                if (img.decode) await img.decode();
+              } catch (e) {}
+              resolve();
+            };
+            img.onload = () => onFinish();
+            img.onerror = () => resolve();
+            // Safety timeout
+            setTimeout(resolve, 1500);
+          });
+        })
+      );
+    }
 
-    await new Promise((r) => setTimeout(r, 100));
+    // 3. Small RAF pause to ensure final paint before rasterization
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 60)));
+  };
+
+  const renderSlideToDataUrl = async (element: HTMLElement, scale: number): Promise<string> => {
+    await waitForElementResources(element);
 
     return await toPng(element, {
       pixelRatio: scale,
@@ -98,14 +121,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     });
   };
 
-  const renderElementToBlob = async (element: HTMLElement, scale: number): Promise<Blob | null> => {
-    if (document.fonts && document.fonts.ready) {
-      try {
-        await document.fonts.ready;
-      } catch (e) {
-        console.warn('Font loading check:', e);
-      }
-    }
+  const renderSlideToBlob = async (element: HTMLElement, scale: number): Promise<Blob | null> => {
+    await waitForElementResources(element);
 
     return await toBlob(element, {
       pixelRatio: scale,
@@ -118,20 +135,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     });
   };
 
+  // Export single slide safely by mounting it in the export container
   const handleDownloadSingle = async (slideIndex = selectedSlideToDownload) => {
     setIsExportingSingle(true);
     setDownloadSuccessMessage(null);
+    setExportRenderIndex(slideIndex);
+
     try {
-      const exportSlide =
-        document.getElementById(`export-slide-${slideIndex}`) ||
-        document.getElementById(`export-slide-${activeSlideIndex}`);
-      
-      if (!exportSlide) throw new Error('Fant ikke slide-elementet for rendering');
-      
+      // Allow React to mount the single slide cleanly
+      await new Promise((r) => setTimeout(r, 200));
+
+      const slideElement = document.getElementById('active-export-slide');
+      if (!slideElement) throw new Error('Fant ikke slide-elementet for rendering');
+
       const scale = resolution === '2160' ? 4 : 2;
-      const exportResult = await renderElementToDataUrl(exportSlide, scale);
-      
-      const currentSlide = project.slides[slideIndex] || project.slides[activeSlideIndex];
+      const exportResult = await renderSlideToDataUrl(slideElement, scale);
+
+      const currentSlide = project.slides[slideIndex] || project.slides[0];
       const safeTitle = (currentSlide.title || currentSlide.preset || `slide_${slideIndex + 1}`)
         .slice(0, 25)
         .replace(/[^a-z0-9]/gi, '_');
@@ -142,7 +162,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setDownloadSuccessMessage(`Slide ${slideIndex + 1} ble lastet ned!`);
       setTimeout(() => setDownloadSuccessMessage(null), 4000);
 
@@ -152,76 +172,92 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       alert('Eksport feilet!\nTeknisk feil: ' + (err?.message || String(err)));
     } finally {
       setIsExportingSingle(false);
+      setExportRenderIndex(null);
     }
   };
 
   const handleCopyImage = async () => {
-    const exportSlide =
-      document.getElementById(`export-slide-${selectedSlideToDownload}`) ||
-      document.getElementById(`export-slide-${activeSlideIndex}`);
-    if (!exportSlide) return;
-
     setIsCopyingImage(true);
+    setExportRenderIndex(selectedSlideToDownload);
+
     try {
+      await new Promise((r) => setTimeout(r, 200));
+      const slideElement = document.getElementById('active-export-slide');
+      if (!slideElement) throw new Error('Fant ikke slide');
+
       const scale = resolution === '2160' ? 4 : 2;
-      const blob = await renderElementToBlob(exportSlide, scale);
+      const blob = await renderSlideToBlob(slideElement, scale);
 
       if (!blob) throw new Error('Kunne ikke generere bilde-blob');
-      
+
       await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
+        new ClipboardItem({ 'image/png': blob }),
       ]);
-      
+
       setCopiedImageSuccess(true);
       setTimeout(() => setCopiedImageSuccess(false), 3000);
     } catch (err: any) {
       console.error('Kopiering feilet:', err);
-      alert('Kunne ikke kopiere bildet direkte. Du kan laste ned PNG i stedet.');
+      alert('Kunne ikke kopiere bildet direkte til utklippstavlen. Prøv Last ned PNG i stedet.');
     } finally {
       setIsCopyingImage(false);
+      setExportRenderIndex(null);
     }
   };
 
   const handleDownloadAllZip = async () => {
     setIsExportingAll(true);
     setDownloadSuccessMessage(null);
+
     try {
       const zip = new JSZip();
       const scale = resolution === '2160' ? 4 : 2;
-      
+
       for (let i = 0; i < project.slides.length; i++) {
         setExportRenderIndex(i);
-        // Gi nettleseren tid til å rendre elementet og eventuelle bilder
-        await new Promise(r => setTimeout(r, 600));
+        // Wait for React DOM update and assets to initialize
+        await new Promise((r) => setTimeout(r, 250));
 
-        const slideElement = document.getElementById(`active-export-slide`);
+        const slideElement = document.getElementById('active-export-slide');
         if (!slideElement) continue;
 
-        const currentDataUrl = await renderElementToDataUrl(slideElement, scale);
-        const base64Data = currentDataUrl.split(',')[1];
+        // Use toBlob directly to conserve RAM and prevent string ballooning
+        const blob = await renderSlideToBlob(slideElement, scale);
+        if (!blob) continue;
+
         const currentSlide = project.slides[i];
-        const fileName = `slide_${String(i + 1).padStart(2, '0')}_${(
-          currentSlide.title || currentSlide.preset
-        )
+        const safeSlideName = (currentSlide.title || currentSlide.preset || 'slide')
           .slice(0, 20)
-          .replace(/[^a-z0-9]/gi, '_')}.png`;
-        
-        zip.file(fileName, base64Data, { base64: true });
+          .replace(/[^a-z0-9]/gi, '_');
+        const fileName = `slide_${String(i + 1).padStart(2, '0')}_${safeSlideName}.png`;
+
+        zip.file(fileName, blob);
+
+        // Small pause between slides for browser garbage collection
+        await new Promise((r) => setTimeout(r, 100));
       }
 
-      // Legg til Instagram bildetekst og emneknagger
+      // Add Instagram caption and hashtags text file
       const captionText = `${project.caption}\n\n${project.hashtags}`;
       zip.file('instagram_caption.txt', captionText);
 
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipBlob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 },
+      });
+
+      const blobUrl = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(zipBlob);
+      link.href = blobUrl;
       const safeProjectTitle = (project.title || 'karusell').replace(/[^a-z0-9]/gi, '_');
       link.download = `${safeProjectTitle}_instagram_export.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
       setDownloadSuccessMessage(`ZIP-pakke med alle ${project.slides.length} slides er lastet ned!`);
       setTimeout(() => setDownloadSuccessMessage(null), 5000);
 
@@ -232,7 +268,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       console.error('Kunne ikke lage ZIP:', err);
       let errMsg = err?.message || String(err);
       if (err instanceof Event) {
-        errMsg = "CORS-blokkering eller nettverksfeil ved nedlasting av bilde";
+        errMsg = 'CORS-blokkering eller nettverksfeil ved nedlasting av bilde';
       }
       alert('Eksport feilet (ZIP)!\nTeknisk feil: ' + errMsg);
     } finally {
@@ -244,16 +280,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleDownloadAllSeparate = async () => {
     setIsExportingIndividualAll(true);
     setDownloadSuccessMessage(null);
+
     try {
       const scale = resolution === '2160' ? 4 : 2;
       for (let i = 0; i < project.slides.length; i++) {
         setExportRenderIndex(i);
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 250));
 
-        const slideElement = document.getElementById(`active-export-slide`);
+        const slideElement = document.getElementById('active-export-slide');
         if (!slideElement) continue;
 
-        const exportResult = await renderElementToDataUrl(slideElement, scale);
+        const exportResult = await renderSlideToDataUrl(slideElement, scale);
         const currentSlide = project.slides[i];
         const safeTitle = (currentSlide.title || currentSlide.preset || 'slide')
           .slice(0, 20)
@@ -266,8 +303,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         link.click();
         document.body.removeChild(link);
 
-        // Vent kort mellom hver nedlasting så nettleseren ikke blokkerer
-        await new Promise(r => setTimeout(r, 300));
+        // Pause between each file download so browser download queue processes smoothly
+        await new Promise((r) => setTimeout(r, 350));
       }
 
       setDownloadSuccessMessage(`Alle ${project.slides.length} slides ble lastet ned!`);
@@ -283,23 +320,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
-  const currentSlide = project.slides[selectedSlideToDownload] || project.slides[activeSlideIndex];
+  const isAnyExporting = isExportingSingle || isExportingAll || isExportingIndividualAll || isCopyingImage;
 
   // ==========================================
   // FULL SCREEN EXPORT PROGRESS VIEW
   // ==========================================
-  if ((isExportingAll || isExportingIndividualAll) && exportRenderIndex !== null) {
+  if (isAnyExporting && exportRenderIndex !== null) {
     const slideToRender = project.slides[exportRenderIndex];
     return (
       <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-stone-900/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
-        <div className="text-white text-center mb-6">
+        <div className="text-white text-center mb-6 max-w-sm">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-3 text-purple-400" />
           <h2 className="text-2xl font-bold tracking-tight">
-            {isExportingAll ? 'Pakker karusell til ZIP...' : 'Laster ned slides...'}
+            {isExportingAll
+              ? 'Pakker karusell til ZIP...'
+              : isExportingIndividualAll
+              ? 'Laster ned slides...'
+              : isCopyingImage
+              ? 'Kopierer bilde...'
+              : 'Eksporterer slide...'}
           </h2>
           <p className="text-stone-300 mt-1 text-sm font-medium">
             Rendrer slide {exportRenderIndex + 1} av {project.slides.length}
           </p>
+
           {/* Progress bar */}
           <div className="w-64 bg-stone-700 h-2 rounded-full mx-auto mt-3 overflow-hidden">
             <div
@@ -310,11 +354,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             />
           </div>
         </div>
-        
-        {/* Render container at full 540x675 for html2canvas */}
+
+        {/* Live single active render container at exact 540x675 */}
         <div className="relative border-2 border-stone-600 rounded-xl overflow-hidden shadow-2xl transition-all scale-75 sm:scale-90 origin-top">
           <div
-            key={`export-render-key-${exportRenderIndex}`}
+            key={`export-render-${slideToRender.id}-${exportRenderIndex}`}
             id="active-export-slide"
             style={{ width: '540px', height: '675px' }}
             className="bg-white"
@@ -340,7 +384,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
         {/* Header */}
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
           <div className="flex items-center gap-3">
@@ -362,7 +405,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          
           {downloadSuccessMessage && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -445,7 +487,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleDownloadSingle(selectedSlideToDownload)}
-                disabled={isExportingSingle}
+                disabled={isAnyExporting}
                 className="p-4 bg-stone-900 hover:bg-stone-800 text-white rounded-xl flex flex-col items-start justify-between text-left shadow-sm transition-all group disabled:opacity-50 cursor-pointer"
               >
                 <div className="flex items-center justify-between w-full mb-3">
@@ -461,9 +503,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </span>
                 </div>
                 <div>
-                  <p className="font-bold text-sm">Last ned slide #{selectedSlideToDownload + 1}</p>
+                  <p className="font-bold text-sm">
+                    Last ned slide #{selectedSlideToDownload + 1}
+                  </p>
                   <p className="text-[11px] text-stone-400 mt-0.5">
-                    Høy oppløsning 1080×1350 format
+                    Høy oppløsning {resolution === '2160' ? '2160×2700' : '1080×1350'} format
                   </p>
                 </div>
               </button>
@@ -472,7 +516,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadAllZip}
-                disabled={isExportingAll}
+                disabled={isAnyExporting}
                 className="p-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-950 rounded-xl flex flex-col items-start justify-between text-left transition-all group disabled:opacity-50 cursor-pointer"
               >
                 <div className="flex items-center justify-between w-full mb-3">
@@ -488,7 +532,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </span>
                 </div>
                 <div>
-                  <p className="font-bold text-sm">Last ned karusell ({project.slides.length} slides)</p>
+                  <p className="font-bold text-sm">
+                    Last ned karusell ({project.slides.length} slides)
+                  </p>
                   <p className="text-[11px] text-purple-800/80 mt-0.5">
                     Alle slides nummerert + bildetekst-fil
                   </p>
@@ -501,8 +547,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={handleCopyImage}
-                disabled={isCopyingImage}
-                className="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold border border-stone-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                disabled={isAnyExporting}
+                className="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold border border-stone-300 flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {copiedImageSuccess ? (
                   <>
@@ -525,8 +571,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadAllSeparate}
-                disabled={isExportingIndividualAll}
-                className="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold border border-stone-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                disabled={isAnyExporting}
+                className="py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold border border-stone-300 flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isExportingIndividualAll ? (
                   <>
@@ -588,43 +634,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </button>
         </div>
       </div>
-      
-      {/* Hidden container rendering all slides cleanly in DOM for single exports */}
-      {!isExportingAll && !isExportingIndividualAll && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '540px',
-            height: '675px',
-            opacity: 0,
-            pointerEvents: 'none',
-            zIndex: -999,
-            overflow: 'hidden',
-          }}
-          aria-hidden="true"
-        >
-          {project.slides.map((slideItem, sIdx) => (
-            <div
-              key={slideItem.id || `export-slide-${sIdx}`}
-              id={`export-slide-${sIdx}`}
-              style={{ width: '540px', height: '675px' }}
-              className="bg-white"
-            >
-              <CanvasSlide
-                slide={slideItem}
-                showPurpleGuide={false}
-                showInstagramUi={false}
-                instagramHandle={project.instagramHandle}
-                instagramLocation={project.instagramLocation}
-                scale={1}
-                interactive={false}
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

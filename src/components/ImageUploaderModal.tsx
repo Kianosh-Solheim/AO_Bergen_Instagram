@@ -79,9 +79,40 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
-        if (loadEvent.target?.result) {
-          setUrl(loadEvent.target.result as string);
-        }
+        const rawResult = loadEvent.target?.result as string;
+        if (!rawResult) return;
+
+        // Automatically optimize/downscale high-res images to max 2048px to prevent memory crashes
+        const imgElement = new Image();
+        imgElement.onload = () => {
+          const maxDim = 2048;
+          let { width, height } = imgElement;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(imgElement, 0, 0, width, height);
+            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.92);
+            setUrl(optimizedUrl);
+          } else {
+            setUrl(rawResult);
+          }
+        };
+        imgElement.onerror = () => {
+          setUrl(rawResult);
+        };
+        imgElement.src = rawResult;
       };
       reader.readAsDataURL(file);
     }

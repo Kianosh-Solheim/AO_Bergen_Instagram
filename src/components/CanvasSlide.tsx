@@ -186,7 +186,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
   ) => {
     return (
       <InteractiveImageSlot
-        key={img?.id || `slot-${index}`}
+        key={`slide-${slide.id}-slot-${index}-${img?.id || 'no-id'}-${img?.url ? 'loaded' : 'empty'}`}
         img={img}
         index={index}
         slide={slide}
