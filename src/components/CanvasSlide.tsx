@@ -82,6 +82,41 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
     }
   };
 
+  const getTitleStyle = (): React.CSSProperties => {
+    const spacing = slide.titleLetterSpacing !== undefined ? slide.titleLetterSpacing : 0.5;
+    const style: React.CSSProperties = { letterSpacing: `${spacing}px` };
+    if (slide.titleFontSize !== undefined) {
+      style.fontSize = `${slide.titleFontSize}px`;
+      style.lineHeight = 1.14;
+    }
+    return style;
+  };
+
+  const getSubtitleStyle = (): React.CSSProperties => {
+    const spacing = slide.subtitleLetterSpacing !== undefined ? slide.subtitleLetterSpacing : 0.3;
+    const style: React.CSSProperties = { letterSpacing: `${spacing}px` };
+    if (slide.subtitleFontSize !== undefined) {
+      style.fontSize = `${slide.subtitleFontSize}px`;
+      style.lineHeight = 1.25;
+    }
+    return style;
+  };
+
+  const getBodyStyle = (): React.CSSProperties => {
+    const spacing = slide.bodyLetterSpacing !== undefined ? slide.bodyLetterSpacing : 0.1;
+    const style: React.CSSProperties = { letterSpacing: `${spacing}px` };
+    if (slide.bodyFontSize !== undefined) {
+      style.fontSize = `${slide.bodyFontSize}px`;
+      style.lineHeight = 1.55;
+    }
+    return style;
+  };
+
+  // Backwards compatibility helpers
+  const getTitleLetterSpacingStyle = getTitleStyle;
+  const getSubtitleLetterSpacingStyle = getSubtitleStyle;
+  const getBodyLetterSpacingStyle = getBodyStyle;
+
   const renderHighlightText = (text: string, highlightWords?: string) => {
     if (!highlightWords || !highlightWords.trim()) {
       return text;
@@ -229,11 +264,11 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           }`}
         >
           {/* 1. PRESET: HOOK / ENKELT BILDE */}
-          {slide.preset === 'hook' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {/* Header Title */}
+          {slide.preset === 'hook' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const headerElement = (
               <div
-                className={`flex flex-col mb-4 ${
+                className={`flex flex-col ${isBelow ? 'mt-3.5 mb-1' : 'mb-3.5'} ${
                   slide.titleAlign === 'center'
                     ? 'items-center text-center'
                     : slide.titleAlign === 'right'
@@ -242,166 +277,224 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 }`}
               >
                 {slide.superTitle && (
-                  <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                  >
                     {slide.superTitle}
                   </p>
                 )}
                 {slide.title && (
                   <h1
-                    className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                      slide.titleSize
-                    )}`}
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    }`}
                   >
                     {slide.title}
                   </h1>
                 )}
                 {slide.subtitle && (
-                  <p className="mt-1 text-[17px] text-stone-700 font-medium leading-snug">
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mt-1 text-[17px] text-stone-700 font-medium leading-snug"
+                  >
                     {slide.subtitle}
                   </p>
                 )}
               </div>
+            );
 
-              {/* Central Image inside frame */}
-              {renderImageGallery(slide.images, 'Klikk for å laste opp bilde', 'flex-1 min-h-0')}
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+                {renderImageGallery(slide.images, 'Klikk for å laste opp bilde', 'flex-1 min-h-0')}
+                {isBelow && headerElement}
 
-              {/* Source Credit Footer */}
-              {slide.sourceCredit && (
-                <div className="mt-2 text-right">
-                  <span className="text-[11px] text-stone-500 font-medium">
-                    {slide.sourceCredit}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+                {/* Source Credit Footer */}
+                {slide.sourceCredit && (
+                  <div className="mt-2 text-right">
+                    <span 
+                      style={getBodyStyle()}
+                      className="text-[11px] text-stone-500 font-medium"
+                    >
+                      {slide.sourceCredit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 2. PRESET: FRA DETTE / TIL DETTE (FØR & ETTER) */}
-          {slide.preset === 'fra_til' && (
-            <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
-              {slide.title && (
-                <div
-                  className={`text-${slide.titleAlign} ${getTitleSizeClass(
-                    slide.titleSize
-                  )} font-bold tracking-tight mb-1`}
-                >
-                  {slide.title}
+          {slide.preset === 'fra_til' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const titleElement = slide.title ? (
+              <div
+                style={getTitleStyle()}
+                className={`text-${slide.titleAlign} ${
+                  !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                } font-bold ${isBelow ? 'mt-2 mb-1' : 'mb-1'}`}
+              >
+                {slide.title}
+              </div>
+            ) : null;
+
+            return (
+              <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
+                {!isBelow && titleElement}
+
+                {/* Image 1: Fra dette */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="text-[18px] font-bold text-stone-900 mb-1"
+                  >
+                    {slide.images[0]?.caption || 'Fra dette:'}
+                  </p>
+                  {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-0')}
                 </div>
-              )}
 
-              {/* Image 1: Fra dette */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
-                  {slide.images[0]?.caption || 'Fra dette:'}
-                </p>
-                {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-0')}
-              </div>
+                {/* Image 2: Til dette */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="text-[18px] font-bold text-stone-900 mb-1"
+                  >
+                    {slide.images[1]?.caption || 'Til dette:'}
+                  </p>
+                  {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-0')}
+                </div>
 
-              {/* Image 2: Til dette */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <p className="text-[18px] font-bold text-stone-900 mb-1 tracking-tight">
-                  {slide.images[1]?.caption || 'Til dette:'}
-                </p>
-                {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-0')}
+                {isBelow && titleElement}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 3. PRESET: FLERBILDE / HVA SOM RIVES / HVA DE VIL BYGGE */}
-          {slide.preset === 'flerbilde' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {/* Headline */}
-              {(slide.superTitle || slide.title) && (
-                <div
-                  className={`mb-3 ${
-                    slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                  }`}
-                >
-                  {slide.superTitle && (
-                    <p className="mb-1 text-[15px] text-stone-600 font-medium">
-                      {slide.superTitle}
-                    </p>
-                  )}
-                  {slide.title && (
-                    <h2
-                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                        slide.titleSize
-                      )}`}
+          {slide.preset === 'flerbilde' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
+              <div
+                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
+                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
+                }`}
+              >
+                {slide.superTitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[15px] text-stone-600 font-medium"
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    }`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+                {slide.subtitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="text-[15px] text-stone-600 font-medium mt-0.5"
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
+              </div>
+            ) : null;
+
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+                {renderImageGallery(slide.images, 'Klikk for å legge til bilde', 'flex-1 min-h-0')}
+                {isBelow && headerElement}
+
+                {slide.sourceCredit && (
+                  <div className="mt-2 text-right">
+                    <span 
+                      style={getBodyStyle()}
+                      className="text-[10px] text-stone-500 font-medium"
                     >
-                      {slide.title}
-                    </h2>
-                  )}
-                  {slide.subtitle && (
-                    <p className="text-[15px] text-stone-600 font-medium mt-0.5">
-                      {slide.subtitle}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Images Stack / Gallery */}
-              {renderImageGallery(slide.images, 'Klikk for å legge til bilde', 'flex-1 min-h-0')}
-
-              {slide.sourceCredit && (
-                <div className="mt-2 text-right">
-                  <span className="text-[10px] text-stone-500 font-medium">
-                    {slide.sourceCredit}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+                      {slide.sourceCredit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 4. PRESET: PRISLAPP / NØKKELTALL */}
-          {slide.preset === 'prislapp' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {/* Title & Price Big Stat */}
-              {(slide.superTitle || slide.title || slide.priceValue) && (
-                <div
-                  className={`mb-3 ${
-                    slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                  }`}
-                >
-                  {slide.superTitle && (
-                    <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
-                      {slide.superTitle}
-                    </p>
-                  )}
-                  {slide.title && (
-                    <h2
-                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                        slide.titleSize
-                      )}`}
+          {slide.preset === 'prislapp' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const headerElement = (slide.superTitle || slide.title || slide.priceValue) ? (
+              <div
+                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
+                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
+                }`}
+              >
+                {slide.superTitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    }`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+
+                {slide.priceValue && (
+                  <div className="mt-2">
+                    <span 
+                      style={getSubtitleStyle()}
+                      className="text-[14px] uppercase tracking-wider text-stone-600 font-bold block"
                     >
-                      {slide.title}
-                    </h2>
-                  )}
+                      {slide.headingTag || 'Prislapp:'}
+                    </span>
+                    <p 
+                      style={getTitleStyle()}
+                      className="text-[32px] sm:text-[36px] font-extrabold text-stone-900 leading-none mt-0.5"
+                    >
+                      {slide.priceValue}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null;
 
-                  {slide.priceValue && (
-                    <div className="mt-2">
-                      <span className="text-[14px] uppercase tracking-wider text-stone-600 font-bold block">
-                        {slide.headingTag || 'Prislapp:'}
-                      </span>
-                      <p className="text-[32px] sm:text-[36px] font-extrabold text-stone-900 tracking-tight leading-none mt-0.5">
-                        {slide.priceValue}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+                {renderImageGallery(slide.images, 'Last opp illustrasjon / bilde (valgfritt)', 'flex-1 min-h-0')}
+                {isBelow && headerElement}
 
-              {/* Main Illustration/Photo */}
-              {renderImageGallery(slide.images, 'Last opp illustrasjon / bilde (valgfritt)', 'flex-1 min-h-0')}
-
-              {slide.sourceCredit && (
-                <div className="mt-2 text-right">
-                  <span className="text-[10px] text-stone-500 font-medium">
-                    {slide.sourceCredit}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+                {slide.sourceCredit && (
+                  <div className="mt-2 text-right">
+                    <span 
+                      style={getBodyStyle()}
+                      className="text-[10px] text-stone-500 font-medium"
+                    >
+                      {slide.sourceCredit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 5. PRESET: SITAT & TEKSTSLIDE MED IKON */}
           {slide.preset === 'sitat' && (
@@ -416,7 +509,10 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               {/* Body Text / Quote */}
               <div className="flex-1 flex items-center justify-center">
                 {slide.bodyText ? (
-                  <div className="text-[17px] leading-[1.6] text-stone-800 font-normal w-full">
+                  <div 
+                    style={getBodyStyle()}
+                    className="text-[17px] leading-[1.6] text-stone-800 font-normal w-full"
+                  >
                     {renderHighlightText(slide.bodyText, slide.highlightWords)}
                   </div>
                 ) : (
@@ -429,7 +525,10 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
               {/* Source Credit */}
               {slide.sourceCredit && (
                 <div className="mt-4 pt-2 border-t border-stone-200/60 text-right">
-                  <span className="text-[11px] text-stone-500 font-medium">
+                  <span 
+                    style={getBodyStyle()}
+                    className="text-[11px] text-stone-500 font-medium"
+                  >
                     {slide.sourceCredit}
                   </span>
                 </div>
@@ -438,165 +537,214 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           )}
 
           {/* 6. PRESET: UNDERTEKST (BILDE MED TEKST UNDER) */}
-          {slide.preset === 'undertekst' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {/* Top Headline */}
-              {(slide.superTitle || slide.title) && (
-                <div
-                  className={`mb-2.5 ${
-                    slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                  }`}
-                >
-                  {slide.superTitle && (
-                    <p className="mb-1 text-[17px] text-stone-900 font-semibold leading-snug">
-                      {slide.superTitle}
-                    </p>
-                  )}
-                  {slide.title && (
-                    <h2
-                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                        slide.titleSize
-                      )}`}
-                    >
-                      {slide.title}
-                    </h2>
-                  )}
-                </div>
-              )}
-
-              {/* Photo */}
-              {renderImageGallery(slide.images, 'Last opp bilde her', 'flex-1 min-h-0')}
-
-              {/* Subtitle / Caption Underneath */}
-              {slide.subtitle && (
-                <div className="mt-3">
-                  <p className="text-[17px] font-semibold text-stone-900 leading-snug">
-                    {slide.subtitle}
+          {slide.preset === 'undertekst' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const topHeader = (slide.superTitle || slide.title) ? (
+              <div
+                className={`${isBelow ? 'mt-2.5 mb-1' : 'mb-2.5'} ${
+                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
+                }`}
+              >
+                {slide.superTitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[17px] text-stone-900 font-semibold leading-snug"
+                  >
+                    {slide.superTitle}
                   </p>
-                </div>
-              )}
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    }`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+              </div>
+            ) : null;
 
-              {slide.sourceCredit && (
-                <div className="mt-2 text-right">
-                  <span className="text-[10px] text-stone-500 font-medium">
-                    {slide.sourceCredit}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && topHeader}
+                {renderImageGallery(slide.images, 'Last opp bilde her', 'flex-1 min-h-0')}
+                {isBelow && topHeader}
 
-          {/* 7. PRESET: MEME / TULL OG TØYS (COMIC SANS, SNAKKEBOBLE, GRU) */}
-          {slide.preset === 'meme' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {/* Meme Title */}
-              {(slide.superTitle || slide.title || slide.subtitle) && (
-                <div
-                  className={`mb-3 ${
-                    slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                  }`}
-                >
-                  {slide.superTitle && (
-                    <p className="mb-1 text-[17px] font-bold text-stone-800 whitespace-pre-line leading-tight">
-                      {slide.superTitle}
-                    </p>
-                  )}
-                  {slide.title && (
-                    <h2
-                      className={`font-bold text-stone-900 leading-tight ${
-                        slide.font === 'comic' ? 'font-comic' : 'font-agrandir'
-                      } ${getTitleSizeClass(slide.titleSize)}`}
+                {/* Subtitle / Caption Underneath */}
+                {slide.subtitle && (
+                  <div className="mt-2.5">
+                    <p 
+                      style={getSubtitleStyle()}
+                      className="text-[17px] font-semibold text-stone-900 leading-snug"
                     >
-                      {slide.title}
-                    </h2>
-                  )}
-                  {slide.subtitle && (
-                    <p className="text-[17px] font-bold text-stone-800 mt-1 whitespace-pre-line leading-tight">
                       {slide.subtitle}
                     </p>
-                  )}
-                </div>
-              )}
-
-              {/* Image Container with Yellow Reality Tag, Gru Tag & Speech Bubble */}
-              <div className="relative flex-1 flex flex-col min-h-[180px]">
-                {renderImageGallery(slide.images, 'Last opp meme/bygningsbilde', 'flex-1 min-h-0')}
-
-                {/* Yellow Reality Tag */}
-                {(slide.showRealityTag || slide.headingTag) && (
-                  <div className="absolute top-2 left-2 bg-yellow-300 text-stone-950 font-extrabold text-[13px] px-2.5 py-0.5 rounded shadow-sm border border-yellow-400 font-comic tracking-wide pointer-events-none z-20">
-                    {slide.headingTag || 'rEAliTy:'}
                   </div>
                 )}
 
-                {/* Speech Bubble Overlay ("Fuck you, historiske Bergen!") */}
-                {slide.speechBubble?.enabled && (
-                  <div
-                    className={`absolute z-30 pointer-events-none ${
-                      slide.speechBubble.position === 'top-right'
-                        ? 'top-4 right-4 speech-bubble-bottom-left'
-                        : slide.speechBubble.position === 'top-left'
-                        ? 'top-4 left-4'
-                        : slide.speechBubble.position === 'bottom-left'
-                        ? 'bottom-8 left-4'
-                        : 'bottom-8 right-4 speech-bubble-top-right'
-                    }`}
-                    style={{
-                      transform: `rotate(${slide.speechBubble.rotation || 0}deg)`,
-                    }}
-                  >
-                    <div className="bg-white text-black font-bold text-[14px] px-3.5 py-2 rounded-xl border-2 border-black shadow-lg font-comic max-w-[200px] text-center leading-tight">
-                      {slide.speechBubble.text}
-                    </div>
+                {slide.sourceCredit && (
+                  <div className="mt-2 text-right">
+                    <span 
+                      style={getBodyStyle()}
+                      className="text-[10px] text-stone-500 font-medium"
+                    >
+                      {slide.sourceCredit}
+                    </span>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
+
+          {/* 7. PRESET: MEME / TULL OG TØYS (COMIC SANS, SNAKKEBOBLE, GRU) */}
+          {slide.preset === 'meme' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
+              <div
+                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
+                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
+                }`}
+              >
+                {slide.superTitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[17px] font-bold text-stone-800 whitespace-pre-line leading-tight"
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 leading-tight ${
+                      slide.font === 'comic' ? 'font-comic' : 'font-agrandir'
+                    } ${!slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''}`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+                {slide.subtitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="text-[17px] font-bold text-stone-800 mt-1 whitespace-pre-line leading-tight"
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
+              </div>
+            ) : null;
+
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+
+                {/* Image Container with Yellow Reality Tag, Gru Tag & Speech Bubble */}
+                <div className="relative flex-1 flex flex-col min-h-[180px]">
+                  {renderImageGallery(slide.images, 'Last opp meme/bygningsbilde', 'flex-1 min-h-0')}
+
+                  {/* Yellow Reality Tag */}
+                  {(slide.showRealityTag || slide.headingTag) && (
+                    <div 
+                      style={getSubtitleStyle()}
+                      className="absolute top-2 left-2 bg-yellow-300 text-stone-950 font-extrabold text-[13px] px-2.5 py-0.5 rounded shadow-sm border border-yellow-400 font-comic pointer-events-none z-20"
+                    >
+                      {slide.headingTag || 'rEAliTy:'}
+                    </div>
+                  )}
+
+                  {/* Speech Bubble Overlay ("Fuck you, historiske Bergen!") */}
+                  {slide.speechBubble?.enabled && (
+                    <div
+                      className={`absolute z-30 pointer-events-none ${
+                        slide.speechBubble.position === 'top-right'
+                          ? 'top-4 right-4 speech-bubble-bottom-left'
+                          : slide.speechBubble.position === 'top-left'
+                          ? 'top-4 left-4'
+                          : slide.speechBubble.position === 'bottom-left'
+                          ? 'bottom-8 left-4'
+                          : 'bottom-8 right-4 speech-bubble-top-right'
+                      }`}
+                      style={{
+                        transform: `rotate(${slide.speechBubble.rotation || 0}deg)`,
+                      }}
+                    >
+                      <div 
+                        style={getBodyStyle()}
+                        className="bg-white text-black font-bold text-[14px] px-3.5 py-2 rounded-xl border-2 border-black shadow-lg font-comic max-w-[200px] text-center leading-tight"
+                      >
+                        {slide.speechBubble.text}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {isBelow && headerElement}
+              </div>
+            );
+          })()}
 
           {/* 8. PRESET: SIDE BY SIDE SAMMENLIGNING */}
-          {slide.preset === 'side_by_side' && (
-            <div className="flex-1 flex flex-col justify-between min-h-0">
-              {(slide.superTitle || slide.title) && (
-                <div
-                  className={`mb-3 ${
-                    slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                  }`}
-                >
-                  {slide.superTitle && (
-                    <p className="mb-1 text-[17px] text-stone-700 font-medium leading-snug">
-                      {slide.superTitle}
-                    </p>
-                  )}
-                  {slide.title && (
-                    <h2
-                      className={`font-bold tracking-tight text-stone-900 ${getTitleSizeClass(
-                        slide.titleSize
-                      )}`}
-                    >
-                      {slide.title}
-                    </h2>
-                  )}
-                </div>
-              )}
-
-              {/* 2 Columns */}
-              <div className="flex-1 grid grid-cols-2 gap-3">
-                <div className="flex flex-col h-full">
-                  <p className="text-[13px] font-bold text-stone-800 mb-1 truncate">
-                    {slide.images[0]?.caption || 'Bilde 1'}
+          {slide.preset === 'side_by_side' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const headerElement = (slide.superTitle || slide.title) ? (
+              <div
+                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
+                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
+                }`}
+              >
+                {slide.superTitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                  >
+                    {slide.superTitle}
                   </p>
-                  {renderImageSlot(slide.images[0], 0, 'Last opp bilde 1', 'flex-1 min-h-0')}
-                </div>
-                <div className="flex flex-col h-full">
-                  <p className="text-[13px] font-bold text-stone-800 mb-1 truncate">
-                    {slide.images[1]?.caption || 'Bilde 2'}
-                  </p>
-                  {renderImageSlot(slide.images[1], 1, 'Last opp bilde 2', 'flex-1 min-h-0')}
-                </div>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    }`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
               </div>
-            </div>
-          )}
+            ) : null;
+
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+
+                {/* 2 Columns */}
+                <div className="flex-1 grid grid-cols-2 gap-3">
+                  <div className="flex flex-col h-full">
+                    <p 
+                      style={getSubtitleStyle()}
+                      className="text-[13px] font-bold text-stone-800 mb-1 truncate"
+                    >
+                      {slide.images[0]?.caption || 'Bilde 1'}
+                    </p>
+                    {renderImageSlot(slide.images[0], 0, 'Last opp bilde 1', 'flex-1 min-h-0')}
+                  </div>
+                  <div className="flex flex-col h-full">
+                    <p 
+                      style={getSubtitleStyle()}
+                      className="text-[13px] font-bold text-stone-800 mb-1 truncate"
+                    >
+                      {slide.images[1]?.caption || 'Bilde 2'}
+                    </p>
+                    {renderImageSlot(slide.images[1], 1, 'Last opp bilde 2', 'flex-1 min-h-0')}
+                  </div>
+                </div>
+
+                {isBelow && headerElement}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Instagram Post Bottom Action Bar (Optional Mockup) */}

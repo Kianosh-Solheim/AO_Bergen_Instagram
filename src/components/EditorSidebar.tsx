@@ -52,6 +52,9 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'meme'>('content');
   const [appliedAllNotice, setAppliedAllNotice] = useState(false);
+  const [appliedSpacingNotice, setAppliedSpacingNotice] = useState(false);
+  const [appliedSizeNotice, setAppliedSizeNotice] = useState(false);
+  const [appliedPositionNotice, setAppliedPositionNotice] = useState(false);
 
   if (!slide) {
     return (
@@ -311,6 +314,64 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     />
                   </div>
                 )}
+
+                {/* Plassering av overskrift (Over / Under bilde) */}
+                <div className="space-y-1.5 pt-2 border-t border-stone-200">
+                  <label className="block text-xs font-bold text-stone-700">
+                    Plassering av overskrift
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSlide({ ...slide, titlePosition: 'above' })}
+                      className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        (slide.titlePosition || 'above') === 'above'
+                          ? 'border-purple-600 bg-purple-50 text-purple-950 ring-1 ring-purple-600 shadow-xs'
+                          : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <span>⬆️ Over bilde (Standard)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSlide({ ...slide, titlePosition: 'below' })}
+                      className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        slide.titlePosition === 'below'
+                          ? 'border-purple-600 bg-purple-50 text-purple-950 ring-1 ring-purple-600 shadow-xs'
+                          : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <span>⬇️ Under bilde</span>
+                    </button>
+                  </div>
+                  {project && onUpdateProject && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pos = slide.titlePosition || 'above';
+                        const updatedSlides = project.slides.map((s) => ({
+                          ...s,
+                          titlePosition: pos,
+                        }));
+                        onUpdateProject({
+                          ...project,
+                          slides: updatedSlides,
+                          titlePosition: pos,
+                        });
+                        setAppliedPositionNotice(true);
+                        setTimeout(() => setAppliedPositionNotice(false), 3000);
+                      }}
+                      className="text-[11px] text-purple-700 hover:text-purple-900 font-semibold flex items-center gap-1 mt-1 cursor-pointer"
+                    >
+                      <span>Bruk denne plasseringen på alle slides</span>
+                    </button>
+                  )}
+                  {appliedPositionNotice && (
+                    <p className="text-[11px] text-emerald-700 font-medium mt-1">
+                      ✓ Plassering er nå oppdatert på alle slides!
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -812,6 +873,282 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Tekststørrelser (Font size) Sliders */}
+            <div className="space-y-3.5 pt-3 border-t border-stone-200">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-stone-500" />
+                  Tekststørrelse (Font Size)
+                </label>
+                <span className="text-[10px] text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                  Sliders
+                </span>
+              </div>
+
+              {/* 1. Overskrift Størrelse Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Overskrifter (Tittel)</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {slide.titleFontSize ?? (slide.titleSize === 'sm' ? 28 : slide.titleSize === 'md' ? 36 : slide.titleSize === 'xl' ? 54 : 40)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="20"
+                  max="72"
+                  step="1"
+                  value={slide.titleFontSize ?? (slide.titleSize === 'sm' ? 28 : slide.titleSize === 'md' ? 36 : slide.titleSize === 'xl' ? 54 : 40)}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      titleFontSize: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>20px (Liten)</span>
+                  <span>40px (Standard)</span>
+                  <span>72px (Stor)</span>
+                </div>
+              </div>
+
+              {/* 2. Underoverskrift / Ingress Størrelse Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Underoverskrift & Ingress</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {slide.subtitleFontSize ?? 17} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="12"
+                  max="36"
+                  step="1"
+                  value={slide.subtitleFontSize ?? 17}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      subtitleFontSize: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>12px</span>
+                  <span>17px (Standard)</span>
+                  <span>36px</span>
+                </div>
+              </div>
+
+              {/* 3. Brødtekst / Sitat / Kilde Størrelse Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Brødtekst, Sitat & Kilde</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {slide.bodyFontSize ?? 15} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="30"
+                  step="1"
+                  value={slide.bodyFontSize ?? 15}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      bodyFontSize: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>10px</span>
+                  <span>15px (Standard)</span>
+                  <span>30px</span>
+                </div>
+              </div>
+
+              {/* Bruk tekststørrelser på alle slides */}
+              {project && onUpdateProject && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tSize = slide.titleFontSize ?? (slide.titleSize === 'sm' ? 28 : slide.titleSize === 'md' ? 36 : slide.titleSize === 'xl' ? 54 : 40);
+                      const sSize = slide.subtitleFontSize ?? 17;
+                      const bSize = slide.bodyFontSize ?? 15;
+                      const updatedSlides = project.slides.map((s) => ({
+                        ...s,
+                        titleFontSize: tSize,
+                        subtitleFontSize: sSize,
+                        bodyFontSize: bSize,
+                      }));
+                      onUpdateProject({
+                        ...project,
+                        slides: updatedSlides,
+                        titleFontSize: tSize,
+                        subtitleFontSize: sSize,
+                        bodyFontSize: bSize,
+                      });
+                      setAppliedSizeNotice(true);
+                      setTimeout(() => setAppliedSizeNotice(false), 3000);
+                    }}
+                    className="w-full py-2 px-3 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Type className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Bruk tekststørrelser på alle slides</span>
+                  </button>
+                  {appliedSizeNotice && (
+                    <p className="text-[11px] text-emerald-700 font-medium text-center mt-1.5">
+                      ✓ Tekststørrelser er nå oppdatert på alle slides!
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bokstavavstand (Letter spacing tracking) Sliders */}
+            <div className="space-y-3.5 pt-3 border-t border-stone-200">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-stone-500" />
+                  Bokstavavstand (Mellomrom)
+                </label>
+                <span className="text-[10px] text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                  Sliders
+                </span>
+              </div>
+
+              {/* 1. Overskrift Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Overskrifter (Tittel)</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {(slide.titleLetterSpacing ?? 0.5).toFixed(1)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="10"
+                  step="0.25"
+                  value={slide.titleLetterSpacing ?? 0.5}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      titleLetterSpacing: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>Tett (-2px)</span>
+                  <span>Normal (0.5px)</span>
+                  <span>Bred (+10px)</span>
+                </div>
+              </div>
+
+              {/* 2. Underoverskrift Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Underoverskrift & Ingress</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {(slide.subtitleLetterSpacing ?? 0.3).toFixed(1)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="8"
+                  step="0.25"
+                  value={slide.subtitleLetterSpacing ?? 0.3}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      subtitleLetterSpacing: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>Tett (-2px)</span>
+                  <span>Normal (0.3px)</span>
+                  <span>Bred (+8px)</span>
+                </div>
+              </div>
+
+              {/* 3. Brødtekst / Sitater / Kilde Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Brødtekst, Sitater & Kilde</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {(slide.bodyLetterSpacing ?? 0.1).toFixed(1)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="6"
+                  step="0.25"
+                  value={slide.bodyLetterSpacing ?? 0.1}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      bodyLetterSpacing: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>Tett (-2px)</span>
+                  <span>Normal (0.1px)</span>
+                  <span>Bred (+6px)</span>
+                </div>
+              </div>
+
+              {/* Bruk på alle slides */}
+              {project && onUpdateProject && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tSpacing = slide.titleLetterSpacing ?? 0.5;
+                      const sSpacing = slide.subtitleLetterSpacing ?? 0.3;
+                      const bSpacing = slide.bodyLetterSpacing ?? 0.1;
+                      const updatedSlides = project.slides.map((s) => ({
+                        ...s,
+                        titleLetterSpacing: tSpacing,
+                        subtitleLetterSpacing: sSpacing,
+                        bodyLetterSpacing: bSpacing,
+                      }));
+                      onUpdateProject({
+                        ...project,
+                        slides: updatedSlides,
+                        titleLetterSpacing: tSpacing,
+                        subtitleLetterSpacing: sSpacing,
+                        bodyLetterSpacing: bSpacing,
+                      });
+                      setAppliedSpacingNotice(true);
+                      setTimeout(() => setAppliedSpacingNotice(false), 3000);
+                    }}
+                    className="w-full py-2 px-3 bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Bruk bokstavavstand på alle slides</span>
+                  </button>
+                  {appliedSpacingNotice && (
+                    <p className="text-[11px] text-emerald-700 font-medium text-center mt-1.5">
+                      ✓ Bokstavavstand er nå oppdatert på alle slides!
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}

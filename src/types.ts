@@ -140,6 +140,13 @@ export interface Slide {
   images: SlideImage[];
   speechBubble?: SpeechBubbleConfig;
   showRealityTag?: boolean;
+  titleLetterSpacing?: number;    // Letter spacing for overskrifter (in px, e.g. -2 to 10)
+  subtitleLetterSpacing?: number; // Letter spacing for underoverskrifter, ingress, captions (in px)
+  bodyLetterSpacing?: number;     // Letter spacing for brødtekst, sitater, kilder (in px)
+  titleFontSize?: number;         // Font size for overskrift i px (f.eks 20-72px)
+  subtitleFontSize?: number;      // Font size for underoverskrift/ingress i px (f.eks 12-36px)
+  bodyFontSize?: number;          // Font size for brødtekst/sitat/kilde i px (f.eks 10-30px)
+  titlePosition?: 'above' | 'below'; // 'above' (over bilde, standard) eller 'below' (under bilde)
 }
 
 export interface CarouselProject {
@@ -151,4 +158,11 @@ export interface CarouselProject {
   caption: string;
   hashtags: string;
   agrandirVariant?: string;
+  titleLetterSpacing?: number;
+  subtitleLetterSpacing?: number;
+  bodyLetterSpacing?: number;
+  titleFontSize?: number;
+  subtitleFontSize?: number;
+  bodyFontSize?: number;
+  titlePosition?: 'above' | 'below';
 }
