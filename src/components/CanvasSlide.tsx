@@ -975,13 +975,13 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
     >
       <img
         src={getProxiedUrl(img.url)}
-        crossOrigin="anonymous"
+        crossOrigin={img.url && img.url.startsWith('http') ? 'anonymous' : undefined}
         alt={img.caption || slide.title || 'Slide bilde'}
         className="w-full h-full object-cover"
         style={{
           transform: `scale(${img.zoom || 1})`,
-          objectPosition: `${posOffset.x}% ${posOffset.y}%`,
-          transformOrigin: `${posOffset.x}% ${posOffset.y}%`,
+          objectPosition: `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%`,
+          transformOrigin: `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%`,
         }}
       />
       {img.credit && (
