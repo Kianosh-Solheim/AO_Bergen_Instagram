@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Slide, CarouselProject } from '../types';
 import { CanvasSlide } from './CanvasSlide';
 import { toPng, toBlob } from 'html-to-image';
@@ -135,24 +136,34 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     });
   };
 
+  const waitForCorrectSlideMounted = async (expectedId: string, timeoutMs = 3000): Promise<HTMLElement> => {
+    const start = performance.now();
+    while (performance.now() - start < timeoutMs) {
+      const el = document.getElementById('active-export-slide');
+      if (el && el.dataset.slideId === String(expectedId)) {
+        return el;
+      }
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    throw new Error(`Timeout: slide ${expectedId} ble ikke montert for rendering innen tidsfristen.`);
+  };
+
   // Export single slide safely by mounting it in the export container
   const handleDownloadSingle = async (slideIndex = selectedSlideToDownload) => {
     setIsExportingSingle(true);
     setDownloadSuccessMessage(null);
-    setExportRenderIndex(slideIndex);
+    const targetSlide = project.slides[slideIndex] || project.slides[0];
 
     try {
-      // Allow React to mount the single slide cleanly
-      await new Promise((r) => setTimeout(r, 200));
+      flushSync(() => {
+        setExportRenderIndex(slideIndex);
+      });
 
-      const slideElement = document.getElementById('active-export-slide');
-      if (!slideElement) throw new Error('Fant ikke slide-elementet for rendering');
-
+      const slideElement = await waitForCorrectSlideMounted(targetSlide.id);
       const scale = resolution === '2160' ? 4 : 2;
       const exportResult = await renderSlideToDataUrl(slideElement, scale);
 
-      const currentSlide = project.slides[slideIndex] || project.slides[0];
-      const safeTitle = (currentSlide.title || currentSlide.preset || `slide_${slideIndex + 1}`)
+      const safeTitle = (targetSlide.title || targetSlide.preset || `slide_${slideIndex + 1}`)
         .slice(0, 25)
         .replace(/[^a-z0-9]/gi, '_');
 
@@ -178,13 +189,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleCopyImage = async () => {
     setIsCopyingImage(true);
-    setExportRenderIndex(selectedSlideToDownload);
+    const targetSlide = project.slides[selectedSlideToDownload] || project.slides[0];
 
     try {
-      await new Promise((r) => setTimeout(r, 200));
-      const slideElement = document.getElementById('active-export-slide');
-      if (!slideElement) throw new Error('Fant ikke slide');
+      flushSync(() => {
+        setExportRenderIndex(selectedSlideToDownload);
+      });
 
+      const slideElement = await waitForCorrectSlideMounted(targetSlide.id);
       const scale = resolution === '2160' ? 4 : 2;
       const blob = await renderSlideToBlob(slideElement, scale);
 
@@ -214,19 +226,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const scale = resolution === '2160' ? 4 : 2;
 
       for (let i = 0; i < project.slides.length; i++) {
-        setExportRenderIndex(i);
-        // Wait for React DOM update and assets to initialize
-        await new Promise((r) => setTimeout(r, 250));
+        const targetSlide = project.slides[i];
 
-        const slideElement = document.getElementById('active-export-slide');
-        if (!slideElement) continue;
+        flushSync(() => {
+          setExportRenderIndex(i);
+        });
+
+        const slideElement = await waitForCorrectSlideMounted(targetSlide.id);
 
         // Use toBlob directly to conserve RAM and prevent string ballooning
         const blob = await renderSlideToBlob(slideElement, scale);
         if (!blob) continue;
 
-        const currentSlide = project.slides[i];
-        const safeSlideName = (currentSlide.title || currentSlide.preset || 'slide')
+        const safeSlideName = (targetSlide.title || targetSlide.preset || 'slide')
           .slice(0, 20)
           .replace(/[^a-z0-9]/gi, '_');
         const fileName = `slide_${String(i + 1).padStart(2, '0')}_${safeSlideName}.png`;
@@ -234,7 +246,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         zip.file(fileName, blob);
 
         // Small pause between slides for browser garbage collection
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 60));
       }
 
       // Add Instagram caption and hashtags text file
@@ -284,15 +296,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     try {
       const scale = resolution === '2160' ? 4 : 2;
       for (let i = 0; i < project.slides.length; i++) {
-        setExportRenderIndex(i);
-        await new Promise((r) => setTimeout(r, 250));
+        const targetSlide = project.slides[i];
 
-        const slideElement = document.getElementById('active-export-slide');
-        if (!slideElement) continue;
+        flushSync(() => {
+          setExportRenderIndex(i);
+        });
+
+        const slideElement = await waitForCorrectSlideMounted(targetSlide.id);
 
         const exportResult = await renderSlideToDataUrl(slideElement, scale);
-        const currentSlide = project.slides[i];
-        const safeTitle = (currentSlide.title || currentSlide.preset || 'slide')
+        const safeTitle = (targetSlide.title || targetSlide.preset || 'slide')
           .slice(0, 20)
           .replace(/[^a-z0-9]/gi, '_');
 
@@ -304,7 +317,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         document.body.removeChild(link);
 
         // Pause between each file download so browser download queue processes smoothly
-        await new Promise((r) => setTimeout(r, 350));
+        await new Promise((r) => setTimeout(r, 200));
       }
 
       setDownloadSuccessMessage(`Alle ${project.slides.length} slides ble lastet ned!`);
@@ -360,6 +373,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div
             key={`export-render-${slideToRender.id}-${exportRenderIndex}`}
             id="active-export-slide"
+            data-slide-id={slideToRender.id}
             style={{ width: '540px', height: '675px' }}
             className="bg-white"
           >
