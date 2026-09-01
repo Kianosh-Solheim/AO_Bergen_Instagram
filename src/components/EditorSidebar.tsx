@@ -117,7 +117,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   };
 
   return (
-    <div className="w-full lg:w-[420px] bg-white border-l border-stone-200 flex flex-col h-full overflow-hidden shadow-sm">
+    <div className="w-full lg:w-[420px] bg-white lg:border-l border-stone-200 flex flex-col h-auto lg:h-full lg:overflow-hidden shadow-sm flex-shrink-0">
       {/* Top Header & Tabs */}
       <div className="p-4 border-b border-stone-200 bg-stone-50/80 flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -218,7 +218,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
       </div>
 
       {/* Main Scrollable Settings Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 lg:overflow-y-auto overflow-visible p-4 space-y-6">
         {/* TAB 1: INNHOLD & LAYOUT */}
         {activeTab === 'content' && (
           <>

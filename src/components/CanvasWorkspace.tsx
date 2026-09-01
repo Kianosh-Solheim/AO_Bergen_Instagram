@@ -106,6 +106,13 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     });
   };
 
+  // Fit on mount and on resize
+  useEffect(() => {
+    handleFitToScreen();
+    window.addEventListener('resize', handleFitToScreen);
+    return () => window.removeEventListener('resize', handleFitToScreen);
+  }, [handleFitToScreen]);
+
   // Keyboard Shortcuts (Space for temporary Hand tool, +/- for Zoom, Ctrl+0 for Fit)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -294,9 +301,9 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-stone-200/50">
       {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col sm:flex-row items-start sm:items-center justify-between pointer-events-none gap-2">
         {/* Left Side: Slide indicator, Color picker & Tools */}
-        <div className="flex items-center gap-2 pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-stone-200/80">
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-stone-200/80">
           <span className="text-xs font-bold text-stone-800 tracking-tight">
             {totalSlides > 0 ? `Slide ${currentSlideIndex + 1}/${totalSlides}` : 'Ingen slides'}
           </span>

@@ -218,19 +218,20 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen w-full bg-stone-100 text-stone-900 font-agrandir overflow-hidden">
       {/* Top Application Header */}
-      <header className="bg-white border-b border-stone-200 px-4 py-2.5 flex items-center justify-between z-30 shadow-2xs">
+      <header className="bg-white border-b border-stone-200 px-3 sm:px-4 py-2.5 flex items-center justify-between z-30 shadow-2xs gap-2">
         {/* Brand & Project Title */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center font-bold text-sm shadow-xs flex-shrink-0">
               AO
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-stone-900 text-sm tracking-tight">
-                  Instagram Malbygger
+                <h1 className="font-extrabold text-stone-900 text-sm tracking-tight truncate">
+                  <span className="hidden sm:inline">Instagram Malbygger</span>
+                  <span className="sm:hidden">Malbygger</span>
                 </h1>
-                <span className="text-[10px] font-semibold uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full border border-purple-200">
+                <span className="hidden sm:inline-block text-[10px] font-semibold uppercase bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full border border-purple-200 flex-shrink-0">
                   1080 × 1350 (4:5)
                 </span>
               </div>
@@ -238,18 +239,18 @@ export default function App() {
                 type="text"
                 value={project.title}
                 onChange={(e) => setProject({ ...project, title: e.target.value })}
-                className="text-xs text-stone-500 font-medium hover:text-stone-900 focus:text-stone-900 focus:outline-none focus:bg-stone-50 px-1 py-0.5 rounded -ml-1 w-52 sm:w-72"
+                className="text-xs text-stone-500 font-medium hover:text-stone-900 focus:text-stone-900 focus:outline-none focus:bg-stone-50 px-1 py-0.5 rounded -ml-1 w-full max-w-[140px] sm:max-w-[280px]"
                 placeholder="Gi innlegget et navn..."
               />
             </div>
-            <button onClick={logout} className="ml-4 p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors" title="Logg ut">
+            <button onClick={logout} className="ml-1 sm:ml-4 p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors flex-shrink-0" title="Logg ut">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Center Quick Helpers */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsRecipeGuideOpen(!isRecipeGuideOpen)}
@@ -261,7 +262,7 @@ export default function App() {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={async () => {
@@ -278,7 +279,7 @@ export default function App() {
               setIsSaving(false);
             }}
             disabled={isSaving}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isSaving ? 'Lagrer...' : 'Lagre utkast'}</span>
@@ -287,16 +288,16 @@ export default function App() {
           <button
             type="button"
             onClick={() => setIsLibraryOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
           >
             <Library className="w-3.5 h-3.5" />
-            <span>Bibliotek</span>
+            <span className="hidden sm:inline">Bibliotek</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsCarouselPreviewOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
           >
             <Play className="w-3.5 h-3.5 text-purple-600 fill-current" />
             <span>Se karusell ({project.slides.length})</span>
@@ -305,17 +306,18 @@ export default function App() {
           <button
             type="button"
             onClick={() => setIsExportOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Eksporter 1080×1350</span>
+            <span className="hidden sm:inline">Eksporter 1080×1350</span>
+            <span className="sm:hidden">Eksporter</span>
           </button>
 
           <button
             type="button"
             onClick={handleResetProject}
             title="Nullstill til standard mal"
-            className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+            className="hidden sm:flex p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -323,9 +325,9 @@ export default function App() {
       </header>
 
       {/* Main Workspace (Canvas Area + Sidebar) */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex flex-col lg:flex-row relative overflow-y-auto lg:overflow-hidden">
         {/* Left/Center Canvas Viewport */}
-        <div className="flex-1 flex flex-col justify-between overflow-hidden relative min-w-0">
+        <div className="w-full lg:flex-1 h-[60vh] lg:h-auto flex flex-col justify-between relative min-w-0 flex-shrink-0">
           <CanvasWorkspace
             slide={currentSlide}
             showPurpleGuide={showPurpleGuide}
