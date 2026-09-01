@@ -23,11 +23,13 @@ import {
   Edit2,
   X,
   Menu,
+  Settings2,
 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isMobileEditorOpen, setIsMobileEditorOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,7 +62,6 @@ export default function App() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isCarouselPreviewOpen, setIsCarouselPreviewOpen] = useState(false);
   const [isRecipeGuideOpen, setIsRecipeGuideOpen] = useState(false);
-  const [isMobileEditorOpen, setIsMobileEditorOpen] = useState(false);
 
   // Image modal state
   const [editingImage, setEditingImage] = useState<{
@@ -325,9 +326,9 @@ export default function App() {
       </header>
 
       {/* Main Workspace (Canvas Area + Sidebar) */}
-      <div className="flex-1 flex flex-col lg:flex-row relative overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         {/* Left/Center Canvas Viewport */}
-        <div className="w-full lg:flex-1 h-[60vh] lg:h-auto flex flex-col justify-between relative min-w-0 flex-shrink-0">
+        <div className="flex-1 h-full flex flex-col justify-between relative min-w-0">
           <CanvasWorkspace
             slide={currentSlide}
             showPurpleGuide={showPurpleGuide}
@@ -357,24 +358,59 @@ export default function App() {
             onMoveSlide={(from, to) => handleMoveSlide(from, to)}
             onOpenCarouselPreview={() => setIsCarouselPreviewOpen(true)}
           />
+
+          {/* Floating Action Button for Mobile Settings */}
+          {!isMobileEditorOpen && (
+            <button
+              type="button"
+              onClick={() => setIsMobileEditorOpen(true)}
+              className="lg:hidden absolute bottom-24 right-4 z-40 p-3.5 bg-purple-600 text-white rounded-full shadow-2xl shadow-purple-900/50 hover:bg-purple-700 transition-transform active:scale-95 flex items-center justify-center border border-purple-500"
+            >
+              <Settings2 className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
         {/* Right Editor Controls Sidebar */}
-        <EditorSidebar
-          project={project}
-          onUpdateProject={setProject}
-          slide={currentSlide}
-          onUpdateSlide={handleUpdateSlide}
-          onUpdateAllSlidesBgColor={handleUpdateAllSlidesBgColor}
-          showPurpleGuide={showPurpleGuide}
-          onTogglePurpleGuide={() => setShowPurpleGuide(!showPurpleGuide)}
-          showInstagramUi={showInstagramUi}
-          onToggleInstagramUi={() => setShowInstagramUi(!showInstagramUi)}
-          onOpenImageModal={(image, index) =>
-            setEditingImage({ image, index })
-          }
-          onAddSlide={(preset) => handleAddSlide(preset)}
-        />
+        <div 
+          className={`
+            fixed inset-0 z-50 lg:static lg:z-auto
+            ${isMobileEditorOpen ? 'flex' : 'hidden lg:flex'}
+            flex-col bg-black/50 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none
+          `}
+        >
+          {/* Mobile Overlay Click-to-close */}
+          <div 
+            className="flex-1 lg:hidden cursor-pointer" 
+            onClick={() => setIsMobileEditorOpen(false)}
+            aria-label="Lukk redigeringspanel"
+          />
+          
+          <div className="h-[85vh] lg:h-full w-full lg:w-auto bg-white rounded-t-3xl lg:rounded-none overflow-hidden animate-in slide-in-from-bottom lg:animate-none flex flex-col relative shadow-2xl lg:shadow-none">
+            {/* Mobile Drag/Close Indicator */}
+            <div className="lg:hidden flex justify-center items-center p-4 bg-stone-50 cursor-pointer active:bg-stone-100" onClick={() => setIsMobileEditorOpen(false)}>
+              <div className="w-12 h-1.5 bg-stone-300 rounded-full" />
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <EditorSidebar
+                project={project}
+                onUpdateProject={setProject}
+                slide={currentSlide}
+                onUpdateSlide={handleUpdateSlide}
+                onUpdateAllSlidesBgColor={handleUpdateAllSlidesBgColor}
+                showPurpleGuide={showPurpleGuide}
+                onTogglePurpleGuide={() => setShowPurpleGuide(!showPurpleGuide)}
+                showInstagramUi={showInstagramUi}
+                onToggleInstagramUi={() => setShowInstagramUi(!showInstagramUi)}
+                onOpenImageModal={(image, index) =>
+                  setEditingImage({ image, index })
+                }
+                onAddSlide={(preset) => handleAddSlide(preset)}
+              />
+            </div>
+          </div>
+        </div>
         </div>
 
       {/* MODALS */}
