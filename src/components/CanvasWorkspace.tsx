@@ -70,14 +70,15 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const presetMenuRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fit to viewport
+  // Auto-fit to viewport (optimized for mobile screens)
   const handleFitToScreen = useCallback(() => {
     if (!viewportRef.current) return;
     const { clientWidth, clientHeight } = viewportRef.current;
     // Canvas dimensions are 540 x 675
-    const paddingX = 80;
-    const paddingY = 90;
-    const availableW = Math.max(200, clientWidth - paddingX);
+    const isMobile = clientWidth < 640;
+    const paddingX = isMobile ? 20 : 80;
+    const paddingY = isMobile ? 40 : 90;
+    const availableW = Math.max(160, clientWidth - paddingX);
     const availableH = Math.max(200, clientHeight - paddingY);
     const fitX = availableW / 540;
     const fitY = availableH / 675;

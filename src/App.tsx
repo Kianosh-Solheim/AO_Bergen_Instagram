@@ -19,6 +19,7 @@ import { SlideStrip } from './components/SlideStrip';
 import { ImageUploaderModal } from './components/ImageUploaderModal';
 import { ExportModal } from './components/ExportModal';
 import { CarouselPreviewModal } from './components/CarouselPreviewModal';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import {
   Download,
   Share2,
@@ -38,12 +39,15 @@ import {
   ShieldCheck,
   ChevronDown,
   Check,
+  Smartphone,
+  MoreVertical,
 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isMobileEditorOpen, setIsMobileEditorOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [currentProjectStatus, setCurrentProjectStatus] = useState<ProjectStatus>('in_progress');
@@ -490,24 +494,27 @@ export default function App() {
 
         {/* Right Actions & Save Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* Admin User Button (Visible for kianoshsolheim@gmail.com) */}
+          {/* PWA Install Button */}
+          <PWAInstallButton variant="header" />
+
+          {/* Admin User Button (Visible for kianoshsolheim@gmail.com on desktop) */}
           {isAdmin && (
             <button
               type="button"
               onClick={() => setIsAdminModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors shadow-2xs whitespace-nowrap"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors shadow-2xs whitespace-nowrap"
               title="Admin: Oversikt over alle brukerkontoer"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-              <span className="hidden sm:inline">Admin: Brukere</span>
-              <span className="sm:hidden">Brukere</span>
+              <span>Admin: Brukere</span>
             </button>
           )}
+
           {/* Dedicated Compact Save Button & Last Saved Status */}
           <div className="flex items-center bg-stone-100/90 border border-stone-200 rounded-xl p-1 gap-1 shadow-2xs">
             <button
               type="button"
-              onClick={() => handleSaveProject('draft')}
+              onClick={() => handleSaveProject()}
               disabled={isSaving}
               className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 hasUnsavedChanges
@@ -521,7 +528,7 @@ export default function App() {
               ) : (
                 <Save className="w-3.5 h-3.5" />
               )}
-              <span>{isSaving ? 'Lagrer...' : 'Lagre'}</span>
+              <span className="hidden sm:inline">{isSaving ? 'Lagrer...' : 'Lagre'}</span>
             </button>
 
             <div className="px-1.5 py-0.5 text-left flex flex-col justify-center">
@@ -547,7 +554,7 @@ export default function App() {
                     : 'Nytt'}
                 </span>
               </div>
-              <span className="text-[9px] text-stone-500 font-medium leading-none mt-1 whitespace-nowrap hidden sm:inline">
+              <span className="text-[9px] text-stone-500 font-medium leading-none mt-1 whitespace-nowrap hidden md:inline">
                 {formatLastSaved(lastSavedTime)}
               </span>
             </div>
@@ -558,7 +565,7 @@ export default function App() {
             type="button"
             onClick={handleCreateNewProject}
             title="Start et nytt tomt innlegg"
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors whitespace-nowrap"
+            className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Nytt</span>
@@ -582,14 +589,14 @@ export default function App() {
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
           >
             <Play className="w-3.5 h-3.5 text-purple-600 fill-current" />
-            <span>Se karusell ({project.slides.length})</span>
+            <span>Se ({project.slides.length})</span>
           </button>
 
           {/* Export Button */}
           <button
             type="button"
             onClick={() => setIsExportOpen(true)}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
           >
             <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Eksporter 1080×1350</span>
@@ -601,9 +608,19 @@ export default function App() {
             type="button"
             onClick={handleResetProject}
             title="Nullstill til standard mal"
-            className="hidden sm:flex p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+            className="hidden md:flex p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
+          </button>
+
+          {/* Mobile Quick Menu Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors cursor-pointer"
+            title="Flere handlinger"
+          >
+            <MoreVertical className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -650,15 +667,19 @@ export default function App() {
             onOpenCarouselPreview={() => setIsCarouselPreviewOpen(true)}
           />
 
-          {/* Floating Action Button for Mobile Settings */}
+          {/* Floating Action Button for Mobile Slide Editing */}
           {!isMobileEditorOpen && (
-            <button
-              type="button"
-              onClick={() => setIsMobileEditorOpen(true)}
-              className="lg:hidden absolute bottom-24 right-4 z-40 p-3.5 bg-purple-600 text-white rounded-full shadow-2xl shadow-purple-900/50 hover:bg-purple-700 transition-transform active:scale-95 flex items-center justify-center border border-purple-500"
-            >
-              <Settings2 className="w-6 h-6" />
-            </button>
+            <div className="lg:hidden absolute bottom-20 right-3 z-40 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMobileEditorOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl shadow-purple-950/40 border border-purple-400 font-bold text-xs active:scale-95 transition-all cursor-pointer"
+                title="Åpne redigering for aktiv slide"
+              >
+                <Settings2 className="w-4 h-4" />
+                <span>Rediger slide #{activeSlideIndex + 1}</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -677,10 +698,27 @@ export default function App() {
             aria-label="Lukk redigeringspanel"
           />
           
-          <div className="h-[85vh] lg:h-full w-full lg:w-auto bg-white rounded-t-3xl lg:rounded-none overflow-hidden animate-in slide-in-from-bottom lg:animate-none flex flex-col relative shadow-2xl lg:shadow-none">
-            {/* Mobile Drag/Close Indicator */}
-            <div className="lg:hidden flex justify-center items-center p-4 bg-stone-50 cursor-pointer active:bg-stone-100" onClick={() => setIsMobileEditorOpen(false)}>
-              <div className="w-12 h-1.5 bg-stone-300 rounded-full" />
+          <div className="h-[88vh] lg:h-full w-full lg:w-auto bg-white rounded-t-3xl lg:rounded-none overflow-hidden animate-in slide-in-from-bottom lg:animate-none flex flex-col relative shadow-2xl lg:shadow-none pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+            {/* Mobile Header with Title and Close Button */}
+            <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-stone-50 border-b border-stone-200 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-600 animate-pulse" />
+                <div>
+                  <h4 className="text-xs font-extrabold text-stone-900 leading-tight">
+                    Redigerer slide #{activeSlideIndex + 1}
+                  </h4>
+                  <p className="text-[10px] text-stone-500 capitalize">
+                    Mal: {currentSlide?.preset || 'Standard'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileEditorOpen(false)}
+                className="px-3 py-1.5 bg-stone-900 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all"
+              >
+                Ferdig
+              </button>
             </div>
 
             <div className="flex-1 overflow-hidden flex flex-col">
@@ -703,6 +741,110 @@ export default function App() {
           </div>
         </div>
         </div>
+
+      {/* Mobile More Actions Sheet */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in lg:hidden">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom duration-200 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-stone-900 text-white flex items-center justify-center font-black text-xs">
+                  AO
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-xs text-stone-900">Meny & Verktøy</h3>
+                  <p className="text-[10px] text-stone-500">Karusell med {project.slides.length} slides</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-3 space-y-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsCarouselPreviewOpen(true);
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+              >
+                <Play className="w-4 h-4 text-purple-600 fill-current" />
+                <span>Forhåndsvis swipe-karusell</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsRecipeGuideOpen(true);
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+              >
+                <BookOpen className="w-4 h-4 text-stone-600" />
+                <span>Se oppskriftsregler</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleCreateNewProject();
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+              >
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <span>Start nytt tomt innlegg</span>
+              </button>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsAdminModalOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 flex items-center gap-3 font-bold transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-purple-600" />
+                  <span>Admin: Alle brukerkontoer</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleResetProject();
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-red-50 text-red-700 flex items-center gap-3 font-semibold transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 text-red-500" />
+                <span>Nullstill til standard mal</span>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
+              <span className="text-[11px] text-stone-500 truncate max-w-[180px]">
+                {user?.email}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logg ut</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODALS */}
       {/* Library Modal */}

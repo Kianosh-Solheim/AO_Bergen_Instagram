@@ -33,15 +33,25 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
   onOpenCarouselPreview,
 }) => {
   return (
-    <div className="bg-stone-900 text-white px-4 py-3 border-t border-stone-800 flex items-center justify-between gap-4 z-20">
-      {/* Left Info & Carousel Player Button */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-stone-300 text-xs font-semibold">
-          <Layers className="w-4 h-4 text-purple-400" />
-          <span>
-            Karusell: <strong className="text-white">{slides.length} slides</strong>
-          </span>
+    <div className="bg-stone-900 text-white px-2 sm:px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-stone-800 flex items-center justify-between gap-2 sm:gap-4 z-20 select-none">
+      {/* Left Info & Previous Arrow */}
+      <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-1 text-stone-300 text-[11px] sm:text-xs font-semibold">
+          <Layers className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden sm:inline">Karusell: </span>
+          <strong className="text-white">{activeSlideIndex + 1}/{slides.length}</strong>
         </div>
+
+        {/* Step Prev Slide Button */}
+        <button
+          type="button"
+          onClick={() => onSelectSlide(Math.max(0, activeSlideIndex - 1))}
+          disabled={activeSlideIndex === 0}
+          className="p-1 sm:p-1.5 bg-stone-800 hover:bg-stone-700 disabled:opacity-30 text-stone-300 hover:text-white rounded-lg border border-stone-700 transition-colors"
+          title="Forrige slide"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
 
         <button
           type="button"
@@ -49,12 +59,12 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-white rounded-lg text-xs font-medium border border-stone-700 transition-colors"
         >
           <Play className="w-3.5 h-3.5 fill-current text-purple-400" />
-          <span>Forhåndsvis karusell</span>
+          <span>Forhåndsvis</span>
         </button>
       </div>
 
-      {/* Center Slide Thumbnails Strip */}
-      <div className="flex items-center gap-2.5 overflow-x-auto py-1 max-w-2xl scrollbar-thin">
+      {/* Center Slide Thumbnails Strip with Touch Smooth Scrolling */}
+      <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-2xl scrollbar-thin scroll-smooth flex-1 justify-center sm:justify-start">
         {slides.map((s, index) => {
           const isActive = index === activeSlideIndex;
           const bg = s.bgColor || '#fffdf7';
@@ -165,8 +175,19 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
         </button>
       </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-2">
+      {/* Right Controls & Next Arrow */}
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        {/* Step Next Slide Button */}
+        <button
+          type="button"
+          onClick={() => onSelectSlide(Math.min(slides.length - 1, activeSlideIndex + 1))}
+          disabled={activeSlideIndex >= slides.length - 1}
+          className="p-1 sm:p-1.5 bg-stone-800 hover:bg-stone-700 disabled:opacity-30 text-stone-300 hover:text-white rounded-lg border border-stone-700 transition-colors"
+          title="Neste slide"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
         {slides.length > 0 && (
           <>
             <button
