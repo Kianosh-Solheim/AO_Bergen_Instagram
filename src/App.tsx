@@ -368,260 +368,352 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen w-full bg-stone-100 text-stone-900 font-agrandir overflow-hidden">
       {/* Top Application Header */}
-      <header className="bg-white border-b border-stone-200 px-3 sm:px-4 py-2 flex items-center justify-between z-30 shadow-2xs gap-2">
-        {/* Brand & Project Title (Editable) */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center font-bold text-sm shadow-xs flex-shrink-0">
-              AO
-            </div>
-            <div className="min-w-0 flex flex-col justify-center">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-stone-900 text-xs sm:text-sm tracking-tight truncate">
-                  <span className="hidden sm:inline">Instagram Malbygger</span>
-                  <span className="sm:hidden">Malbygger</span>
-                </span>
-                <span className="hidden md:inline-block text-[10px] font-semibold uppercase bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded-full border border-purple-200 flex-shrink-0">
-                  1080 × 1350
-                </span>
-              </div>
-              {/* Post Title Field & Status Selector */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <div className="flex items-center gap-1 group">
-                  <input
-                    type="text"
-                    value={project.title}
-                    onChange={(e) => {
-                      setProject({ ...project, title: e.target.value });
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="text-xs font-bold text-stone-800 hover:text-stone-900 focus:text-stone-900 focus:outline-none focus:bg-stone-100 px-1 py-0.5 rounded -ml-1 w-full max-w-[120px] sm:max-w-[180px] md:max-w-[240px] truncate border border-transparent hover:border-stone-200 focus:border-purple-300 transition-colors"
-                    placeholder="Navn på innlegg..."
-                    title="Klikk for å gi innlegget et navn"
-                  />
-                  <Edit2 className="w-3 h-3 text-stone-400 group-hover:text-stone-600 flex-shrink-0" />
-                </div>
-
-                {/* Status Dropdown Selector */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                    className={`text-[10px] uppercase font-extrabold px-1.5 sm:px-2 py-0.5 rounded-md border flex items-center gap-1 cursor-pointer transition-all ${
-                      PROJECT_STATUSES[currentProjectStatus]?.badgeBg || 'bg-stone-100'
-                    } ${PROJECT_STATUSES[currentProjectStatus]?.badgeText || 'text-stone-700'} ${
-                      PROJECT_STATUSES[currentProjectStatus]?.badgeBorder || 'border-stone-300'
-                    }`}
-                    title="Endre status på innlegget"
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        PROJECT_STATUSES[currentProjectStatus]?.dotColor || 'bg-stone-400'
-                      }`}
-                    />
-                    <span>{PROJECT_STATUSES[currentProjectStatus]?.label || 'Status'}</span>
-                    <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-                  </button>
-
-                  {isStatusDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 z-50 w-48 bg-white rounded-xl shadow-xl border border-stone-200 p-1 animate-in fade-in">
-                      <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2 py-1">
-                        Sett innleggsstatus:
-                      </div>
-                      {(
-                        [
-                          'not_started',
-                          'in_progress',
-                          'ready_for_publishing',
-                          'published',
-                        ] as ProjectStatus[]
-                      ).map((st) => {
-                        const meta = PROJECT_STATUSES[st];
-                        const isSelected = currentProjectStatus === st;
-                        return (
-                          <button
-                            key={st}
-                            type="button"
-                            onClick={() => {
-                              setCurrentProjectStatus(st);
-                              setIsStatusDropdownOpen(false);
-                              setHasUnsavedChanges(true);
-                              if (currentProjectId) {
-                                updateProjectStatus(currentProjectId, st, {
-                                  email: user?.email,
-                                  displayName: user?.displayName,
-                                });
-                                setToastMessage(`Status satt til "${meta.label}"`);
-                                setTimeout(() => setToastMessage(null), 2500);
-                              }
-                            }}
-                            className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
-                              isSelected
-                                ? 'bg-stone-100 text-stone-900 font-bold'
-                                : 'text-stone-700 hover:bg-stone-50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
-                              <span>{meta.label}</span>
-                            </div>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-purple-600" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button onClick={logout} className="ml-0.5 sm:ml-2 p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors flex-shrink-0" title="Logg ut">
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Center Quick Helpers */}
-        <div className="hidden xl:flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsRecipeGuideOpen(!isRecipeGuideOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-stone-600" />
-            <span>Se oppskriftsregler</span>
-          </button>
-        </div>
-
-        {/* Right Actions & Save Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* PWA Install Button */}
-          <PWAInstallButton variant="header" />
-
-          {/* Admin User Button (Visible for kianoshsolheim@gmail.com on desktop) */}
-          {isAdmin && (
+      <header className="bg-white border-b border-stone-200 px-3 sm:px-4 py-2 z-30 shadow-2xs">
+        {/* MOBILE HEADER (< md) */}
+        <div className="flex md:hidden items-center justify-between gap-2 w-full">
+          {/* Left: Hamburger Button + AO Logo + Compact Title / Status */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
-              onClick={() => setIsAdminModalOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors shadow-2xs whitespace-nowrap"
-              title="Admin: Oversikt over alle brukerkontoer"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-1.5 -ml-1 text-stone-700 hover:text-stone-900 hover:bg-stone-100 active:bg-stone-200 rounded-lg active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+              title="Åpne meny & verktøy"
+              aria-label="Åpne meny"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-              <span>Admin: Brukere</span>
+              <Menu className="w-5 h-5 text-stone-800" />
             </button>
-          )}
 
-          {/* Dedicated Compact Save Button & Last Saved Status */}
-          <div className="flex items-center bg-stone-100/90 border border-stone-200 rounded-xl p-1 gap-1 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-stone-900 text-white flex items-center justify-center font-black text-xs shadow-xs flex-shrink-0">
+              AO
+            </div>
+
+            <div className="min-w-0 flex-1 flex flex-col justify-center">
+              <input
+                type="text"
+                value={project.title}
+                onChange={(e) => {
+                  setProject({ ...project, title: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
+                className="text-xs font-bold text-stone-900 focus:outline-none focus:bg-stone-100 px-1 py-0.5 rounded -ml-1 w-full truncate border border-transparent focus:border-purple-300"
+                placeholder="Navn på innlegg..."
+                title="Klikk for å redigere tittel"
+              />
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="flex items-center gap-1 text-[10px] text-stone-500 hover:text-stone-800 -mt-0.5 text-left truncate"
+                title="Trykk for å endre status i menyen"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                    PROJECT_STATUSES[currentProjectStatus]?.dotColor || 'bg-stone-400'
+                  }`}
+                />
+                <span className="font-semibold truncate">
+                  {PROJECT_STATUSES[currentProjectStatus]?.label || 'Status'}
+                </span>
+                <ChevronDown className="w-2.5 h-2.5 opacity-60 flex-shrink-0" />
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Quick Save + Quick Library + Primary Export */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Quick Save */}
             <button
               type="button"
               onClick={() => handleSaveProject()}
               disabled={isSaving}
-              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`p-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 hasUnsavedChanges
-                  ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs'
-                  : 'bg-white hover:bg-stone-100 text-stone-800 border border-stone-200'
+                  ? 'bg-purple-600 text-white shadow-xs animate-pulse'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
               }`}
-              title="Lagre innlegg (Ctrl+S / Cmd+S)"
+              title={
+                isSaving
+                  ? 'Lagrer...'
+                  : hasUnsavedChanges
+                  ? 'Ulagrede endringer! Trykk for å lagre'
+                  : 'Alt er lagret'
+              }
             >
               {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+              ) : hasUnsavedChanges ? (
+                <Save className="w-4 h-4 text-white" />
               ) : (
-                <Save className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4 text-emerald-600" />
               )}
-              <span className="hidden sm:inline">{isSaving ? 'Lagrer...' : 'Lagre'}</span>
             </button>
 
-            <div className="px-1.5 py-0.5 text-left flex flex-col justify-center">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    isSaving
-                      ? 'bg-purple-500 animate-ping'
-                      : hasUnsavedChanges
-                      ? 'bg-amber-500'
-                      : lastSavedTime
-                      ? 'bg-emerald-500'
-                      : 'bg-stone-400'
-                  }`}
-                />
-                <span className="text-[11px] font-bold text-stone-700 leading-none">
-                  {isSaving
-                    ? 'Lagrer...'
-                    : hasUnsavedChanges
-                    ? 'Ulagret'
-                    : lastSavedTime
-                    ? 'Lagret'
-                    : 'Nytt'}
-                </span>
+            {/* Quick Library Button */}
+            <button
+              type="button"
+              onClick={() => setIsLibraryOpen(true)}
+              className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-200 transition-colors cursor-pointer"
+              title="Bibliotek (Lagrede innlegg)"
+            >
+              <Library className="w-4 h-4" />
+            </button>
+
+            {/* Quick Export Button */}
+            <button
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+              title="Eksporter til Instagram (1080×1350)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Eksport</span>
+            </button>
+          </div>
+        </div>
+
+        {/* DESKTOP HEADER (>= md) */}
+        <div className="hidden md:flex items-center justify-between gap-3 w-full">
+          {/* Brand & Project Title (Editable) */}
+          <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center font-bold text-sm shadow-xs flex-shrink-0">
+                AO
               </div>
-              <span className="text-[9px] text-stone-500 font-medium leading-none mt-1 whitespace-nowrap hidden md:inline">
-                {formatLastSaved(lastSavedTime)}
-              </span>
+              <div className="min-w-0 flex flex-col justify-center">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-stone-900 text-sm tracking-tight truncate">
+                    Instagram Malbygger
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded-full border border-purple-200 flex-shrink-0">
+                    1080 × 1350
+                  </span>
+                </div>
+                {/* Post Title Field & Status Selector */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 group">
+                    <input
+                      type="text"
+                      value={project.title}
+                      onChange={(e) => {
+                        setProject({ ...project, title: e.target.value });
+                        setHasUnsavedChanges(true);
+                      }}
+                      className="text-xs font-bold text-stone-800 hover:text-stone-900 focus:text-stone-900 focus:outline-none focus:bg-stone-100 px-1 py-0.5 rounded -ml-1 w-full max-w-[180px] lg:max-w-[240px] truncate border border-transparent hover:border-stone-200 focus:border-purple-300 transition-colors"
+                      placeholder="Navn på innlegg..."
+                      title="Klikk for å gi innlegget et navn"
+                    />
+                    <Edit2 className="w-3 h-3 text-stone-400 group-hover:text-stone-600 flex-shrink-0" />
+                  </div>
+
+                  {/* Status Dropdown Selector */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                      className={`text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 cursor-pointer transition-all ${
+                        PROJECT_STATUSES[currentProjectStatus]?.badgeBg || 'bg-stone-100'
+                      } ${PROJECT_STATUSES[currentProjectStatus]?.badgeText || 'text-stone-700'} ${
+                        PROJECT_STATUSES[currentProjectStatus]?.badgeBorder || 'border-stone-300'
+                      }`}
+                      title="Endre status på innlegget"
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          PROJECT_STATUSES[currentProjectStatus]?.dotColor || 'bg-stone-400'
+                        }`}
+                      />
+                      <span>{PROJECT_STATUSES[currentProjectStatus]?.label || 'Status'}</span>
+                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                    </button>
+
+                    {isStatusDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 z-50 w-48 bg-white rounded-xl shadow-xl border border-stone-200 p-1 animate-in fade-in">
+                        <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2 py-1">
+                          Sett innleggsstatus:
+                        </div>
+                        {(
+                          [
+                            'not_started',
+                            'in_progress',
+                            'ready_for_publishing',
+                            'published',
+                          ] as ProjectStatus[]
+                        ).map((st) => {
+                          const meta = PROJECT_STATUSES[st];
+                          const isSelected = currentProjectStatus === st;
+                          return (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => {
+                                setCurrentProjectStatus(st);
+                                setIsStatusDropdownOpen(false);
+                                setHasUnsavedChanges(true);
+                                if (currentProjectId) {
+                                  updateProjectStatus(currentProjectId, st, {
+                                    email: user?.email,
+                                    displayName: user?.displayName,
+                                  });
+                                  setToastMessage(`Status satt til "${meta.label}"`);
+                                  setTimeout(() => setToastMessage(null), 2500);
+                                }
+                              }}
+                              className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                                isSelected
+                                  ? 'bg-stone-100 text-stone-900 font-bold'
+                                  : 'text-stone-700 hover:bg-stone-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${meta.dotColor}`} />
+                                <span>{meta.label}</span>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-purple-600" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button onClick={logout} className="ml-2 p-1.5 text-stone-400 hover:text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors flex-shrink-0" title="Logg ut">
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
-          {/* New Post Button */}
-          <button
-            type="button"
-            onClick={handleCreateNewProject}
-            title="Start et nytt tomt innlegg"
-            className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors whitespace-nowrap"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nytt</span>
-          </button>
+          {/* Center Quick Helpers */}
+          <div className="hidden lg:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsRecipeGuideOpen(!isRecipeGuideOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-stone-600" />
+              <span>Se oppskriftsregler</span>
+            </button>
+          </div>
 
-          {/* Library Button */}
-          <button
-            type="button"
-            onClick={() => setIsLibraryOpen(true)}
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
-            title="Åpne bibliotek med lagrede innlegg og utkast"
-          >
-            <Library className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Bibliotek</span>
-          </button>
+          {/* Right Actions & Save Controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* PWA Install Button */}
+            <PWAInstallButton variant="header" />
 
-          {/* Carousel Preview Button */}
-          <button
-            type="button"
-            onClick={() => setIsCarouselPreviewOpen(true)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap"
-          >
-            <Play className="w-3.5 h-3.5 text-purple-600 fill-current" />
-            <span>Se ({project.slides.length})</span>
-          </button>
+            {/* Admin User Button (Visible for kianoshsolheim@gmail.com on desktop) */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsAdminModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold border border-purple-200 transition-colors shadow-2xs whitespace-nowrap"
+                title="Admin: Oversikt over alle brukerkontoer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                <span>Admin: Brukere</span>
+              </button>
+            )}
 
-          {/* Export Button */}
-          <button
-            type="button"
-            onClick={() => setIsExportOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Eksporter 1080×1350</span>
-            <span className="sm:hidden">Eksporter</span>
-          </button>
+            {/* Dedicated Compact Save Button & Last Saved Status */}
+            <div className="flex items-center bg-stone-100/90 border border-stone-200 rounded-xl p-1 gap-1 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleSaveProject()}
+                disabled={isSaving}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hasUnsavedChanges
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs'
+                    : 'bg-white hover:bg-stone-100 text-stone-800 border border-stone-200'
+                }`}
+                title="Lagre innlegg (Ctrl+S / Cmd+S)"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>{isSaving ? 'Lagrer...' : 'Lagre'}</span>
+              </button>
 
-          {/* Reset Template */}
-          <button
-            type="button"
-            onClick={handleResetProject}
-            title="Nullstill til standard mal"
-            className="hidden md:flex p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
+              <div className="px-1.5 py-0.5 text-left flex flex-col justify-center">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      isSaving
+                        ? 'bg-purple-500 animate-ping'
+                        : hasUnsavedChanges
+                        ? 'bg-amber-500'
+                        : lastSavedTime
+                        ? 'bg-emerald-500'
+                        : 'bg-stone-400'
+                    }`}
+                  />
+                  <span className="text-[11px] font-bold text-stone-700 leading-none">
+                    {isSaving
+                      ? 'Lagrer...'
+                      : hasUnsavedChanges
+                      ? 'Ulagret'
+                      : lastSavedTime
+                      ? 'Lagret'
+                      : 'Nytt'}
+                  </span>
+                </div>
+                <span className="text-[9px] text-stone-500 font-medium leading-none mt-1 whitespace-nowrap">
+                  {formatLastSaved(lastSavedTime)}
+                </span>
+              </div>
+            </div>
 
-          {/* Mobile Quick Menu Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors cursor-pointer"
-            title="Flere handlinger"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
+            {/* New Post Button */}
+            <button
+              type="button"
+              onClick={handleCreateNewProject}
+              title="Start et nytt tomt innlegg"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold border border-stone-200 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nytt</span>
+            </button>
+
+            {/* Library Button */}
+            <button
+              type="button"
+              onClick={() => setIsLibraryOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap cursor-pointer"
+              title="Åpne bibliotek med lagrede innlegg og utkast"
+            >
+              <Library className="w-3.5 h-3.5" />
+              <span>Bibliotek</span>
+            </button>
+
+            {/* Carousel Preview Button */}
+            <button
+              type="button"
+              onClick={() => setIsCarouselPreviewOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg text-xs font-semibold border border-stone-300 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 text-purple-600 fill-current" />
+              <span>Se ({project.slides.length})</span>
+            </button>
+
+            {/* Export Button */}
+            <button
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Eksporter 1080×1350</span>
+            </button>
+
+            {/* Reset Template */}
+            <button
+              type="button"
+              onClick={handleResetProject}
+              title="Nullstill til standard mal"
+              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -742,101 +834,293 @@ export default function App() {
         </div>
         </div>
 
-      {/* Mobile More Actions Sheet */}
+      {/* Mobile Comprehensive Navigation & Tools Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in lg:hidden">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom duration-200 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-stone-900 text-white flex items-center justify-center font-black text-xs">
+        <div className="fixed inset-0 z-50 flex justify-start bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 lg:hidden">
+          {/* Backdrop click to close */}
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Lukk meny"
+          />
+
+          <div className="relative w-[86%] max-w-[340px] bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-250 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+            {/* Drawer Header */}
+            <div className="p-4 bg-stone-900 text-white flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white text-stone-900 flex items-center justify-center font-black text-xs">
                   AO
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-xs text-stone-900">Meny & Verktøy</h3>
-                  <p className="text-[10px] text-stone-500">Karusell med {project.slides.length} slides</p>
+                  <h3 className="font-extrabold text-xs text-white">AO Instagram Malbygger</h3>
+                  <p className="text-[10px] text-stone-400">1080 × 1350 · {project.slides.length} slides</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100"
+                className="p-1.5 text-stone-300 hover:text-white rounded-lg hover:bg-stone-800 transition-colors"
+                title="Lukk meny"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="py-3 space-y-1.5 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsCarouselPreviewOpen(true);
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
-              >
-                <Play className="w-4 h-4 text-purple-600 fill-current" />
-                <span>Forhåndsvis swipe-karusell</span>
-              </button>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+              {/* Project Title & Status Section */}
+              <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200/80 space-y-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block mb-1">
+                    Navn på innlegg
+                  </label>
+                  <input
+                    type="text"
+                    value={project.title}
+                    onChange={(e) => {
+                      setProject({ ...project, title: e.target.value });
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full text-xs font-bold text-stone-900 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-500"
+                    placeholder="Gi innlegget et navn..."
+                  />
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsRecipeGuideOpen(true);
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
-              >
-                <BookOpen className="w-4 h-4 text-stone-600" />
-                <span>Se oppskriftsregler</span>
-              </button>
+                <div>
+                  <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">
+                    Innleggsstatus:
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        'not_started',
+                        'in_progress',
+                        'ready_for_publishing',
+                        'published',
+                      ] as ProjectStatus[]
+                    ).map((st) => {
+                      const meta = PROJECT_STATUSES[st];
+                      const isSelected = currentProjectStatus === st;
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => {
+                            setCurrentProjectStatus(st);
+                            setHasUnsavedChanges(true);
+                            if (currentProjectId) {
+                              updateProjectStatus(currentProjectId, st, {
+                                email: user?.email,
+                                displayName: user?.displayName,
+                              });
+                              setToastMessage(`Status satt til "${meta.label}"`);
+                              setTimeout(() => setToastMessage(null), 2500);
+                            }
+                          }}
+                          className={`text-left p-2 rounded-xl text-[11px] font-bold flex items-center justify-between border transition-all ${
+                            isSelected
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span
+                              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                isSelected ? 'bg-white' : meta.dotColor
+                              }`}
+                            />
+                            <span className="truncate">{meta.label}</span>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleCreateNewProject();
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
-              >
-                <Plus className="w-4 h-4 text-emerald-600" />
-                <span>Start nytt tomt innlegg</span>
-              </button>
+                {/* Save card with timestamp */}
+                <div className="pt-1 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isSaving
+                          ? 'bg-purple-500 animate-ping'
+                          : hasUnsavedChanges
+                          ? 'bg-amber-500'
+                          : lastSavedTime
+                          ? 'bg-emerald-500'
+                          : 'bg-stone-400'
+                      }`}
+                    />
+                    <span className="text-[11px] font-semibold text-stone-600">
+                      {isSaving
+                        ? 'Lagrer...'
+                        : hasUnsavedChanges
+                        ? 'Ulagrede endringer'
+                        : lastSavedTime
+                        ? `Lagret ${formatLastSaved(lastSavedTime)}`
+                        : 'Ikke lagret'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSaveProject();
+                    }}
+                    disabled={isSaving}
+                    className="px-2.5 py-1 bg-stone-900 text-white rounded-lg text-xs font-bold active:scale-95 transition-transform"
+                  >
+                    {isSaving ? 'Lagrer...' : 'Lagre nå'}
+                  </button>
+                </div>
+              </div>
 
-              {isAdmin && (
+              {/* Main Actions */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2">
+                  Handlinger
+                </div>
+
                 <button
                   type="button"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    setIsAdminModalOpen(true);
+                    setIsExportOpen(true);
                   }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 flex items-center gap-3 font-bold transition-colors"
+                  className="w-full text-left px-3 py-2.5 rounded-xl bg-stone-900 text-white flex items-center gap-3 font-bold transition-all shadow-xs cursor-pointer active:scale-98"
                 >
-                  <ShieldCheck className="w-4 h-4 text-purple-600" />
-                  <span>Admin: Alle brukerkontoer</span>
+                  <Download className="w-4 h-4 text-purple-300" />
+                  <div className="flex-1">
+                    <div>Eksporter 1080×1350</div>
+                    <div className="text-[10px] font-normal text-stone-300">Last ned ferdig slide/karusell</div>
+                  </div>
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleResetProject();
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-red-50 text-red-700 flex items-center gap-3 font-semibold transition-colors"
-              >
-                <RotateCcw className="w-4 h-4 text-red-500" />
-                <span>Nullstill til standard mal</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsLibraryOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 flex items-center justify-center flex-shrink-0">
+                    <Library className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-stone-900">Bibliotek & Utkast</div>
+                    <div className="text-[10px] text-stone-500">Åpne tidligere lagrede innlegg</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsCarouselPreviewOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                    <Play className="w-4 h-4 fill-current" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-stone-900">Forhåndsvis swipe-karusell</div>
+                    <div className="text-[10px] text-stone-500">Test opplevelsen slik den blir på Instagram</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleCreateNewProject();
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-stone-900">Start nytt tomt innlegg</div>
+                    <div className="text-[10px] text-stone-500">Opprett et nytt innlegg fra start</div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Tools & Resources */}
+              <div className="space-y-1 pt-1">
+                <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2">
+                  Verktøy & Guider
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsRecipeGuideOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-stone-900">Se oppskriftsregler</div>
+                    <div className="text-[10px] text-stone-500">Strukturregler for suksessfulle karuseller</div>
+                  </div>
+                </button>
+
+                {/* PWA Install Button Variant Menu */}
+                <PWAInstallButton variant="menu" />
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsAdminModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 flex items-center gap-3 font-bold transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-200 text-purple-800 flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-purple-900">Admin: Brukere</div>
+                      <div className="text-[10px] text-purple-700">Se alle registrerte kontoer</div>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleResetProject();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-red-50 text-red-600 flex items-center gap-3 font-semibold transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center flex-shrink-0">
+                    <RotateCcw className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-semibold">Nullstill til standard mal</span>
+                </button>
+              </div>
             </div>
 
-            <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
-              <span className="text-[11px] text-stone-500 truncate max-w-[180px]">
-                {user?.email}
-              </span>
+            {/* Drawer Footer with User & Logout */}
+            <div className="p-4 bg-stone-50 border-t border-stone-200 flex items-center justify-between flex-shrink-0">
+              <div className="min-w-0 pr-2">
+                <div className="text-[11px] font-bold text-stone-800 truncate">
+                  {user?.displayName || 'Innlogget'}
+                </div>
+                <div className="text-[10px] text-stone-500 truncate">{user?.email}</div>
+              </div>
               <button
                 type="button"
                 onClick={logout}
-                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Logg ut</span>

@@ -52,6 +52,22 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ variant = 'h
         </button>
       )}
 
+      {variant === 'menu' && (
+        <button
+          type="button"
+          onClick={handleInstallClick}
+          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 flex items-center gap-3 font-semibold text-stone-800 transition-colors cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-xs text-stone-900">Installer som mobilapp</div>
+            <div className="text-[11px] text-stone-500">Rask tilgang direkte fra hjemskjermen</div>
+          </div>
+        </button>
+      )}
+
       {/* iOS Safari Installation Guide Modal */}
       {showIOSModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
