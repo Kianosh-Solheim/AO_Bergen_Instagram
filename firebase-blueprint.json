@@ -1,18 +1,34 @@
 {
   "projectSettings": {
     "authEnabled": true,
-    "defaultRulesLevel": "private"
+    "defaultRulesLevel": "authenticated"
   },
   "collections": [
     {
       "name": "projects",
-      "description": "Stores user drafts and published projects",
+      "description": "Stores shared drafts and published Instagram carousel projects for team collaboration",
       "schema": {
         "type": "object",
         "properties": {
           "userId": {
             "type": "string",
-            "description": "ID of the user who owns the project"
+            "description": "ID of the user who created the project"
+          },
+          "creatorEmail": {
+            "type": "string",
+            "description": "Email of user who created the project"
+          },
+          "creatorName": {
+            "type": "string",
+            "description": "Name of user who created the project"
+          },
+          "lastUpdatedByEmail": {
+            "type": "string",
+            "description": "Email of user who last modified the project"
+          },
+          "lastUpdatedByName": {
+            "type": "string",
+            "description": "Name of user who last modified the project"
           },
           "title": {
             "type": "string",
@@ -24,8 +40,8 @@
           },
           "status": {
             "type": "string",
-            "enum": ["draft", "published"],
-            "description": "Whether the project is a draft or published"
+            "enum": ["not_started", "in_progress", "ready_for_publishing", "published", "draft"],
+            "description": "Project progress status: not_started, in_progress, ready_for_publishing, published"
           },
           "createdAt": {
             "type": "timestamp"
@@ -34,13 +50,51 @@
             "type": "timestamp"
           }
         },
-        "required": ["userId", "title", "data", "status", "createdAt", "updatedAt"]
+        "required": ["userId", "title", "data", "status", "updatedAt"]
       },
       "rules": {
-        "read": "request.auth != null && request.auth.uid == resource.data.userId",
-        "create": "request.auth != null && request.resource.data.userId == request.auth.uid",
-        "update": "request.auth != null && request.auth.uid == resource.data.userId && request.resource.data.userId == request.auth.uid",
-        "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+        "read": "request.auth != null",
+        "create": "request.auth != null",
+        "update": "request.auth != null",
+        "delete": "request.auth != null"
+      }
+    },
+    {
+      "name": "users",
+      "description": "Registered user accounts visible to admin kianoshsolheim@gmail.com",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string",
+            "description": "Firebase Auth user ID"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "User display name"
+          },
+          "photoURL": {
+            "type": "string",
+            "description": "User avatar URL"
+          },
+          "createdAt": {
+            "type": "timestamp"
+          },
+          "lastLoginAt": {
+            "type": "timestamp"
+          }
+        },
+        "required": ["uid", "email"]
+      },
+      "rules": {
+        "read": "request.auth != null",
+        "create": "request.auth != null && request.auth.uid == userId",
+        "update": "request.auth != null && request.auth.uid == userId",
+        "delete": "request.auth != null && request.auth.token.email.lower() == 'kianoshsolheim@gmail.com'"
       }
     }
   ]
