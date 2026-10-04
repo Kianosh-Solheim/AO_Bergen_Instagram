@@ -9,6 +9,11 @@ import {
   PROJECT_STATUSES,
   updateProjectStatus,
 } from './lib/projectService';
+import {
+  saveLocalDraftToStorage,
+  loadLocalDraftFromStorage,
+  optimizeProjectImagesForStorage,
+} from './lib/imageUtils';
 import { isUserAdmin, syncUserProfile, ADMIN_EMAIL } from './lib/userService';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { LibraryModal } from './components/LibraryModal';
@@ -106,9 +111,25 @@ export default function App() {
 
   const activeCanvasRef = useRef<HTMLDivElement | null>(null);
 
-  // Persist project changes to local storage
+  // Load from IndexedDB if available and optimize any legacy oversized base64 images
   useEffect(() => {
-    localStorage.setItem('ao_instagram_project', JSON.stringify(project));
+    let isMounted = true;
+    (async () => {
+      const idbDraft = await loadLocalDraftFromStorage();
+      const targetDraft = idbDraft || project;
+      const optimized = await optimizeProjectImagesForStorage(targetDraft);
+      if (isMounted && optimized) {
+        setProject(optimized);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist project changes to local storage + IndexedDB safely (supports large computer-uploaded images)
+  useEffect(() => {
+    saveLocalDraftToStorage(project);
     if (project.agrandirVariant) {
       document.documentElement.style.setProperty('--font-agrandir', `"${project.agrandirVariant}", "Plus Jakarta Sans", "Outfit", sans-serif`);
     } else {
@@ -238,9 +259,12 @@ export default function App() {
     setIsSaving(true);
     const statusToSave = overrideStatus || currentProjectStatus;
     try {
+      const optimizedProject = await optimizeProjectImagesForStorage(project);
+      setProject(optimizedProject);
+
       const savedId = await saveProject(
         user.uid,
-        project,
+        optimizedProject,
         statusToSave,
         currentProjectId || undefined,
         {
@@ -249,14 +273,29 @@ export default function App() {
         }
       );
       setCurrentProjectId(savedId);
-      localStorage.setItem('ao_current_project_id', savedId);
+      try {
+        localStorage.setItem('ao_current_project_id', savedId);
+      } catch {
+        // Ignore storage quota warning
+      }
 
       const now = new Date();
       setLastSavedTime(now);
-      localStorage.setItem('ao_last_saved_time', now.toISOString());
+      try {
+        localStorage.setItem('ao_last_saved_time', now.toISOString());
+      } catch {
+        // Ignore storage quota warning
+      }
       setHasUnsavedChanges(false);
 
-      setToastMessage('Innlegget ble lagret!');
+      const hasUploadedPhotos = optimizedProject.slides.some((s) =>
+        (s.images || []).some((img) => img?.url?.startsWith('data:image/'))
+      );
+      setToastMessage(
+        hasUploadedPhotos
+          ? 'Utkast med opplastede bilder ble lagret!'
+          : 'Innlegget ble lagret!'
+      );
       setTimeout(() => setToastMessage(null), 3000);
     } catch (e) {
       console.error('Feil ved lagring av prosjekt', e);

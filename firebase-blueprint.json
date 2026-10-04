@@ -43,6 +43,22 @@
             "enum": ["not_started", "in_progress", "ready_for_publishing", "published", "draft"],
             "description": "Project progress status: not_started, in_progress, ready_for_publishing, published"
           },
+          "isChunked": {
+            "type": "boolean",
+            "description": "Whether the project payload is split across subcollection chunks"
+          },
+          "chunkCount": {
+            "type": "number",
+            "description": "Number of chunks used to store the serialized project"
+          },
+          "slideCount": {
+            "type": "number",
+            "description": "Number of slides in the project"
+          },
+          "uploadedImagesCount": {
+            "type": "number",
+            "description": "Number of computer-uploaded images in the project"
+          },
           "createdAt": {
             "type": "timestamp"
           },

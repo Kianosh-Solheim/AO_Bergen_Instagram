@@ -7,6 +7,10 @@ service cloud.firestore {
 
     match /projects/{projectId} {
       allow read, create, update, delete: if isSignedIn();
+
+      match /chunks/{chunkId} {
+        allow read, create, update, delete: if isSignedIn();
+      }
     }
 
     match /users/{userId} {

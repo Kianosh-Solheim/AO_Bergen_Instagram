@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { SlideImage } from '../types';
 import { SAMPLE_IMAGES } from '../data/defaultPresets';
-import { Upload, Image as ImageIcon, ZoomIn, Move, X, Check, Link, Trash2 } from 'lucide-react';
+import { compressImageFile } from '../lib/imageUtils';
+import { Upload, Image as ImageIcon, ZoomIn, Move, X, Check, Link, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface ImageUploaderModalProps {
   isOpen: boolean;
@@ -36,6 +37,42 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [isFileDropOver, setIsFileDropOver] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  const processComputerFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setIsProcessingFile(true);
+    try {
+      const optimizedDataUrl = await compressImageFile(file);
+      setUrl(optimizedDataUrl);
+      setUploadedFileName(file.name);
+    } catch (err) {
+      console.error('Feil ved bildeopplasting:', err);
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // Support Ctrl+V / Cmd+V image paste while modal is open
+  React.useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            processComputerFile(blob);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   // Handle dragging to pan image
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -73,48 +110,21 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
     setZoom(prev => Math.max(1, Math.min(3, prev + zoomDelta)));
   };
 
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (loadEvent) => {
-        const rawResult = loadEvent.target?.result as string;
-        if (!rawResult) return;
+      await processComputerFile(file);
+      e.target.value = '';
+    }
+  };
 
-        // Automatically optimize/downscale high-res images to max 2048px to prevent memory crashes
-        const imgElement = new Image();
-        imgElement.onload = () => {
-          const maxDim = 2048;
-          let { width, height } = imgElement;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(imgElement, 0, 0, width, height);
-            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.92);
-            setUrl(optimizedUrl);
-          } else {
-            setUrl(rawResult);
-          }
-        };
-        imgElement.onerror = () => {
-          setUrl(rawResult);
-        };
-        imgElement.src = rawResult;
-      };
-      reader.readAsDataURL(file);
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDropOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processComputerFile(file);
     }
   };
 
@@ -132,6 +142,8 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
     });
     onClose();
   };
+
+  const isLocalUploadedImage = Boolean(url && url.startsWith('data:image/'));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -154,11 +166,40 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-6">
           {/* Image Live Crop Preview */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">
-              Forhåndsvisning (Dra i bildet for å posisjonere, scroll for å zoome)
-            </label>
-            <div className="relative w-full h-56 bg-stone-200 rounded-lg overflow-hidden border border-stone-300 shadow-inner flex items-center justify-center cursor-move" onMouseDown={handleMouseDown} onWheel={handleWheel}>
-              {url ? (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">
+                Forhåndsvisning (Dra i bildet for å posisjonere, eller slipp bildefil her)
+              </label>
+              {isLocalUploadedImage && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  {uploadedFileName
+                    ? `Lastet opp: ${uploadedFileName}`
+                    : 'Bilde fra datamaskin (lagres i utkast)'}
+                </span>
+              )}
+            </div>
+            <div
+              className={`relative w-full h-56 bg-stone-200 rounded-lg overflow-hidden border-2 shadow-inner flex items-center justify-center cursor-move transition-colors ${
+                isFileDropOver
+                  ? 'border-purple-600 bg-purple-50/60'
+                  : 'border-stone-300'
+              }`}
+              onMouseDown={handleMouseDown}
+              onWheel={handleWheel}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsFileDropOver(true);
+              }}
+              onDragLeave={() => setIsFileDropOver(false)}
+              onDrop={handleFileDrop}
+            >
+              {isProcessingFile ? (
+                <div className="text-stone-700 flex flex-col items-center gap-2 bg-white/90 px-4 py-3 rounded-xl shadow-xs">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                  <span className="text-xs font-bold">Optimaliserer bilde for lagring i utkast...</span>
+                </div>
+              ) : url ? (
                 <img
                   src={url}
                   alt="Utsnitt forhåndsvisning"
@@ -169,9 +210,12 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
                   }}
                 />
               ) : (
-                <div className="text-stone-400 flex flex-col items-center gap-1">
-                  <ImageIcon className="w-8 h-8 opacity-50" />
-                  <span className="text-xs">Ingen bilde valgt</span>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-stone-500 hover:text-stone-800 flex flex-col items-center gap-1.5 cursor-pointer p-4"
+                >
+                  <Upload className="w-8 h-8 opacity-60" />
+                  <span className="text-xs font-semibold">Klikk for å laste opp fra datamaskin, eller slipp bilde her</span>
                 </div>
               )}
 

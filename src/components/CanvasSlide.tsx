@@ -1,5 +1,6 @@
 import React, { Fragment, useState, useRef, useEffect, MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { Slide, BrandFont, SlideImage } from '../types';
+import { compressImageFile } from '../lib/imageUtils';
 import {
   Sparkles,
   MessageCircle,
@@ -790,12 +791,59 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isDragMode, setIsDragMode] = useState(false);
+  const [isFileHovering, setIsFileHovering] = useState(false);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [posOffset, setPosOffset] = useState({ x: img?.positionX ?? 50, y: img?.positionY ?? 50 });
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const directFileInputRef = useRef<HTMLInputElement>(null);
+
+  const applyUploadedFileToSlot = async (file: File) => {
+    if (!file.type.startsWith('image/') || !onUpdateSlide) return;
+    try {
+      const optimizedUrl = await compressImageFile(file);
+      const updatedImages = [...slide.images];
+      const baseImg: SlideImage = img || {
+        id: `img-${Date.now()}-${index}`,
+        url: '',
+        credit: '',
+        aspectRatio: '4:3',
+        objectFit: 'cover',
+        zoom: 1,
+        positionY: 50,
+        positionX: 50,
+      };
+      updatedImages[index] = {
+        ...baseImg,
+        url: optimizedUrl,
+      };
+      onUpdateSlide({ ...slide, images: updatedImages });
+      setShowMenu(false);
+    } catch (err) {
+      console.error('Feil ved bildeopplasting til slide:', err);
+    }
+  };
+
+  const handleDirectFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await applyUploadedFileToSlot(file);
+      e.target.value = '';
+    }
+  };
+
+  const handleSlotFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileHovering(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await applyUploadedFileToSlot(file);
+    }
+  };
 
   // Sync state if img changes externally
   useEffect(() => {
@@ -946,11 +994,30 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
   if (!hasImage || !img) {
     return (
       <div
-        className={`relative ${customHeightClass} min-h-[140px] rounded-sm border-2 border-dashed border-stone-300/80 hover:border-purple-400 bg-stone-100/50 hover:bg-purple-50/40 transition-all flex flex-col items-center justify-center p-4 text-center group ${
+        className={`relative ${customHeightClass} min-h-[140px] rounded-sm border-2 border-dashed ${
+          isFileHovering
+            ? 'border-purple-600 bg-purple-100/60'
+            : 'border-stone-300/80 hover:border-purple-400 bg-stone-100/50 hover:bg-purple-50/40'
+        } transition-all flex flex-col items-center justify-center p-4 text-center group ${
           interactive ? 'cursor-pointer' : ''
         }`}
         onClick={handleClick}
+        onDragOver={(e) => {
+          if (!interactive) return;
+          e.preventDefault();
+          setIsFileHovering(true);
+        }}
+        onDragLeave={() => setIsFileHovering(false)}
+        onDrop={handleSlotFileDrop}
       >
+        <input
+          ref={directFileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleDirectFileInputChange}
+          className="hidden"
+          onClick={(e) => e.stopPropagation()}
+        />
         <ImageIcon className="w-8 h-8 text-stone-300 group-hover:text-purple-400 transition-colors mb-2" />
         <span className="text-xs font-semibold text-stone-400 group-hover:text-purple-500">
           {placeholderLabel}
@@ -964,15 +1031,29 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
       ref={containerRef}
       className={`relative ${customHeightClass} rounded-sm overflow-hidden bg-stone-200/90 shadow-xs flex flex-col group ${
         interactive && isDragMode ? 'cursor-grab active:cursor-grabbing' : interactive ? 'cursor-pointer' : ''
-      }`}
+      } ${isFileHovering ? 'ring-4 ring-purple-500' : ''}`}
       onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      
-      title={isDragMode ? "Dra for å flytte, scroll for å zoome" : "Klikk for meny"}
+      onDragOver={(e) => {
+        if (!interactive) return;
+        e.preventDefault();
+        setIsFileHovering(true);
+      }}
+      onDragLeave={() => setIsFileHovering(false)}
+      onDrop={handleSlotFileDrop}
+      title={isDragMode ? "Dra for å flytte, scroll for å zoome" : "Klikk for meny eller slipp bildefil fra datamaskin"}
     >
+      <input
+        ref={directFileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleDirectFileInputChange}
+        className="hidden"
+        onClick={(e) => e.stopPropagation()}
+      />
       <img
         src={getProxiedUrl(img.url)}
         crossOrigin={img.url && img.url.startsWith('http') ? 'anonymous' : undefined}
@@ -1010,6 +1091,15 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
                 <CloseIcon className="w-4 h-4" />
               </button>
             </div>
+            <button
+              onClick={() => {
+                directFileInputRef.current?.click();
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-left transition-colors border-b border-stone-100 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-emerald-400" />
+              <span className="font-semibold text-xs">Last opp fra datamaskin</span>
+            </button>
             <button 
               onClick={() => { setIsDragMode(true); setShowMenu(false); }}
               className="flex items-center gap-2 px-4 py-2.5 hover:bg-purple-50 text-stone-800 text-left transition-colors border-b border-stone-100"

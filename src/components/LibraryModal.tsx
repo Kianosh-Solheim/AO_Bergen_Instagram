@@ -444,12 +444,28 @@ export const LibraryModal: React.FC<LibraryModalProps> = ({
                 const isConfirmingDelete = confirmDeleteId === proj.id;
                 const isStatusMenuOpen = openStatusMenuId === proj.id;
 
-                let slideCount = 0;
+                let slideCount = proj.slideCount || 0;
+                let previewThumbs: string[] = [];
+                let uploadedCount = proj.uploadedImagesCount || 0;
                 try {
                   const parsed = JSON.parse(proj.data);
-                  slideCount = parsed.slides?.length || 0;
+                  slideCount = parsed.slides?.length || slideCount;
+                  let calcUploaded = 0;
+                  for (const s of parsed.slides || []) {
+                    for (const img of s.images || []) {
+                      if (img?.url) {
+                        if (previewThumbs.length < 4) {
+                          previewThumbs.push(img.url);
+                        }
+                        if (img.url.startsWith('data:image/')) {
+                          calcUploaded++;
+                        }
+                      }
+                    }
+                  }
+                  if (calcUploaded > 0) uploadedCount = calcUploaded;
                 } catch {
-                  slideCount = 0;
+                  // fallback to metadata
                 }
 
                 // Resolve current status metadata
@@ -589,6 +605,27 @@ export const LibraryModal: React.FC<LibraryModalProps> = ({
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
+                        </div>
+                      )}
+
+                      {/* Thumbnail Preview Strip for Drafts with Images */}
+                      {previewThumbs.length > 0 && (
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                            {previewThumbs.map((tUrl, tIdx) => (
+                              <img
+                                key={tIdx}
+                                src={tUrl}
+                                alt="Slide-bilde"
+                                className="w-11 h-11 rounded-md object-cover border border-stone-200 flex-shrink-0 bg-stone-100"
+                              />
+                            ))}
+                          </div>
+                          {uploadedCount > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap ml-auto">
+                              {uploadedCount} {uploadedCount === 1 ? 'eget bilde' : 'egne bilder'}
+                            </span>
+                          )}
                         </div>
                       )}
 
