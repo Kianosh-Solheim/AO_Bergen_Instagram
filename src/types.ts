@@ -97,6 +97,28 @@ export type SlidePresetType =
   | 'meme'          // Lov med litt tull og tøys (snakkeboble, Comic Sans, Gru)
   | 'side_by_side';  // Sammenligning side ved side
 
+export type ImageAnnotationType = 'arrow' | 'box' | 'circle' | 'label';
+
+export interface ImageAnnotation {
+  id: string;
+  type: ImageAnnotationType;
+  color: string;
+  label?: string;
+  strokeWidth?: number;
+  dashed?: boolean;
+  filled?: boolean;
+  // For 'arrow': start (x1, y1) -> arrowhead (x2, y2) in % (0-100)
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+  // For 'box', 'circle', 'label': center (x, y) and dimensions (width, height) in % (0-100)
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface SlideImage {
   id: string;
   url: string;
@@ -109,6 +131,7 @@ export interface SlideImage {
   positionX?: number;   // 0 to 100
   labelTag?: string;    // F.eks. "Gru sitt hus | Despicable me" eller "Møllendalsveien 1C"
   signText?: string;    // Skilt tekst som vises underst i selve bildet
+  annotations?: ImageAnnotation[]; // Piler, bokser, sirkler og merkelapper over bildet
 }
 
 export interface SpeechBubbleConfig {

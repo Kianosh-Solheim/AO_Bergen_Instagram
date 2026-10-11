@@ -1,6 +1,8 @@
 import React, { Fragment, useState, useRef, useEffect, MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { Slide, BrandFont, SlideImage } from '../types';
+import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
 import { compressImageFile } from '../lib/imageUtils';
+import { ImageAnnotationLayer } from './ImageAnnotationLayer';
 import {
   Sparkles,
   MessageCircle,
@@ -14,6 +16,7 @@ import {
   Settings,
   Type,
   MousePointer2,
+  ArrowUpRight,
   X as CloseIcon,
 } from 'lucide-react';
 
@@ -509,6 +512,10 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
             const badgeType = slide.topBadgeType || 'emoji';
             const badgeSize = slide.topBadgeSize ?? (badgeType === 'logo' ? 42 : 38);
+            const matchedPresetLogo = slide.topLogoId
+              ? NEWSPAPER_LOGOS.find((l) => l.id === slide.topLogoId || (slide.topLogoId === 'bt_short' && l.id === 'bt_full'))
+              : undefined;
+            const resolvedLogoUrl = matchedPresetLogo ? matchedPresetLogo.dataUrl : slide.topLogoUrl;
 
             return (
               <div className="flex-1 flex flex-col justify-between py-2 min-h-0">
@@ -524,12 +531,12 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                   </div>
                 )}
 
-                {badgeType === 'logo' && slide.topLogoUrl && (
+                {badgeType === 'logo' && resolvedLogoUrl && (
                   <div className="flex justify-center mb-3">
                     <img
-                      src={slide.topLogoUrl}
+                      src={resolvedLogoUrl}
                       alt="Avislogo"
-                      style={{ height: `${badgeSize}px`, maxWidth: '340px' }}
+                      style={{ height: `${badgeSize}px`, maxWidth: '380px' }}
                       className="object-contain select-none"
                     />
                   </div>
@@ -1096,6 +1103,27 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
           transformOrigin: `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%`,
         }}
       />
+
+      {/* Arrows, Boxes, Circles & Labels Overlay */}
+      {img.annotations && img.annotations.length > 0 && (
+        <ImageAnnotationLayer
+          annotations={img.annotations}
+          interactive={interactive && !showMenu && !isDragMode}
+          onUpdateAnnotation={(updatedAnn) => {
+            if (!onUpdateSlide) return;
+            const updatedImages = [...slide.images];
+            const nextAnnotations = (img.annotations || []).map((a) =>
+              a.id === updatedAnn.id ? updatedAnn : a
+            );
+            updatedImages[index] = {
+              ...img,
+              annotations: nextAnnotations,
+            };
+            onUpdateSlide({ ...slide, images: updatedImages });
+          }}
+        />
+      )}
+
       {img.credit && (
         <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white/95 text-[9px] px-2 py-0.5 rounded font-normal z-10 pointer-events-none">
           {img.credit}
@@ -1115,7 +1143,7 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
       {/* Interactive Overlay Menu */}
       {interactive && showMenu && !isDragMode && (
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center gap-2 p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white rounded-xl shadow-xl flex flex-col overflow-hidden w-48 text-sm">
+          <div className="bg-white rounded-xl shadow-xl flex flex-col overflow-hidden w-52 text-sm">
             <div className="px-3 py-2 bg-stone-100 border-b border-stone-200 flex justify-between items-center">
               <span className="font-bold text-stone-700 text-xs uppercase tracking-wider">Rediger bilde</span>
               <button onClick={() => setShowMenu(false)} className="text-stone-400 hover:text-stone-700">
@@ -1132,18 +1160,25 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
               <span className="font-semibold text-xs">Last opp fra datamaskin</span>
             </button>
             <button 
+              onClick={() => { if (onOpenImageModal) onOpenImageModal(img, index); setShowMenu(false); }}
+              className="flex items-center gap-2 px-4 py-2.5 hover:bg-red-50 text-stone-800 text-left transition-colors border-b border-stone-100 cursor-pointer"
+            >
+              <ArrowUpRight className="w-4 h-4 text-red-600" />
+              <span className="font-bold text-xs">Piler, Bokser & Markering</span>
+            </button>
+            <button 
               onClick={() => { setIsDragMode(true); setShowMenu(false); }}
               className="flex items-center gap-2 px-4 py-2.5 hover:bg-purple-50 text-stone-800 text-left transition-colors border-b border-stone-100"
             >
               <Move className="w-4 h-4 text-purple-600" />
-              <span className="font-semibold">Endre plassering</span>
+              <span className="font-semibold text-xs">Endre bildeutsnitt</span>
             </button>
             <button 
               onClick={() => { if (onOpenImageModal) onOpenImageModal(img, index); setShowMenu(false); }}
               className="flex items-center gap-2 px-4 py-2.5 hover:bg-stone-50 text-stone-800 text-left transition-colors border-b border-stone-100"
             >
               <Settings className="w-4 h-4 text-stone-500" />
-              <span className="font-medium">Merkelapper & Kilde</span>
+              <span className="font-medium text-xs">Merkelapper & Kilde</span>
             </button>
             <button 
               onClick={() => { 

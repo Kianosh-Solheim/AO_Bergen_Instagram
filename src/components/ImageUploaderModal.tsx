@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { SlideImage } from '../types';
+import { SlideImage, ImageAnnotation } from '../types';
 import { SAMPLE_IMAGES } from '../data/defaultPresets';
 import { compressImageFile } from '../lib/imageUtils';
+import { ImageAnnotationLayer, AnnotationEditorControls } from './ImageAnnotationLayer';
 import { Upload, Image as ImageIcon, ZoomIn, Move, X, Check, Link, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface ImageUploaderModalProps {
@@ -31,6 +32,10 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
   const [positionX, setPositionX] = useState(image.positionX ?? 50);
   const [labelTag, setLabelTag] = useState(image.labelTag || '');
   const [signText, setSignText] = useState(image.signText || '');
+  const [annotations, setAnnotations] = useState<ImageAnnotation[]>(image.annotations || []);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(
+    image.annotations?.[0]?.id || null
+  );
   const [urlInput, setUrlInput] = useState('');
   const [isUrlMode, setIsUrlMode] = useState(false);
 
@@ -139,6 +144,7 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
       positionX,
       labelTag,
       signText,
+      annotations,
     });
     onClose();
   };
@@ -200,15 +206,29 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
                   <span className="text-xs font-bold">Optimaliserer bilde for lagring i utkast...</span>
                 </div>
               ) : url ? (
-                <img
-                  src={url}
-                  alt="Utsnitt forhåndsvisning"
-                  className="w-full h-full object-cover transition-all"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    objectPosition: `${positionX}% ${positionY}%`,
-                  }}
-                />
+                <>
+                  <img
+                    src={url}
+                    alt="Utsnitt forhåndsvisning"
+                    className="w-full h-full object-cover transition-all"
+                    style={{
+                      transform: `scale(${zoom})`,
+                      objectPosition: `${positionX}% ${positionY}%`,
+                    }}
+                  />
+                  {/* Live interactive annotation layer */}
+                  <ImageAnnotationLayer
+                    annotations={annotations}
+                    interactive={true}
+                    selectedId={selectedAnnotationId}
+                    onSelect={setSelectedAnnotationId}
+                    onUpdateAnnotation={(updated) => {
+                      setAnnotations((prev) =>
+                        prev.map((a) => (a.id === updated.id ? updated : a))
+                      );
+                    }}
+                  />
+                </>
               ) : (
                 <div
                   onClick={() => fileInputRef.current?.click()}
@@ -220,17 +240,25 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
               )}
 
               {credit && (
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded">
+                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded pointer-events-none z-20">
                   {credit}
                 </div>
               )}
               {caption && (
-                <div className="absolute top-2 left-2 bg-black/70 text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                <div className="absolute top-2 left-2 bg-black/70 text-white text-[11px] font-bold px-2 py-0.5 rounded pointer-events-none z-20">
                   {caption}
                 </div>
               )}
             </div>
           </div>
+
+          {/* Arrows, Boxes, Circles & Labels Editor */}
+          <AnnotationEditorControls
+            annotations={annotations}
+            selectedId={selectedAnnotationId}
+            onSelect={setSelectedAnnotationId}
+            onChange={setAnnotations}
+          />
 
           {/* Quick upload / change options */}
           <div className="space-y-3">

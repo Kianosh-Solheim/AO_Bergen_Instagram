@@ -3,6 +3,7 @@ import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage } from '../
 import { PRESET_TEMPLATES, SAMPLE_IMAGES } from '../data/defaultPresets';
 import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
 import { compressImageFile, compressTransparentLogoFile, removeWhiteBackgroundFromLogo } from '../lib/imageUtils';
+import { AnnotationEditorControls } from './ImageAnnotationLayer';
 import {
   Palette,
   Type,
@@ -28,6 +29,7 @@ import {
   Ban,
   AlertTriangle,
   Wand2,
+  ArrowUpRight,
 } from 'lucide-react';
 
 import { CarouselProject } from "../types";
@@ -65,6 +67,8 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   const [appliedPositionNotice, setAppliedPositionNotice] = useState(false);
   const [uploadingImageSlot, setUploadingImageSlot] = useState<number | 'new' | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [activeAnnotationImgIndex, setActiveAnnotationImgIndex] = useState<number>(0);
+  const [selectedSidebarAnnotationId, setSelectedSidebarAnnotationId] = useState<string | null>(null);
   const sidebarFileInputRef = useRef<HTMLInputElement | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const targetSlotRef = useRef<number | 'new'>('new');
@@ -1061,6 +1065,64 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                       </div>
                     );
                   })}
+
+                  {/* Direct Arrows, Boxes & Annotations Panel for Slide Images */}
+                  {(() => {
+                    const safeImgIdx =
+                      activeAnnotationImgIndex < slide.images.length
+                        ? activeAnnotationImgIndex
+                        : 0;
+                    const targetImg = slide.images[safeImgIdx];
+                    if (!targetImg) return null;
+
+                    return (
+                      <div className="pt-2 space-y-2">
+                        {slide.images.length > 1 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[11px] font-bold text-stone-600">
+                              Velg bilde å markere på:
+                            </span>
+                            {slide.images.map((im, i) => (
+                              <button
+                                key={im.id || i}
+                                type="button"
+                                onClick={() => {
+                                  setActiveAnnotationImgIndex(i);
+                                  setSelectedSidebarAnnotationId(
+                                    im.annotations?.[0]?.id || null
+                                  );
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                  safeImgIdx === i
+                                    ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                                    : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                                }`}
+                              >
+                                {im.caption || `Bilde #${i + 1}`}
+                                {im.annotations && im.annotations.length > 0
+                                  ? ` (${im.annotations.length})`
+                                  : ''}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <AnnotationEditorControls
+                          annotations={targetImg.annotations || []}
+                          selectedId={selectedSidebarAnnotationId}
+                          onSelect={setSelectedSidebarAnnotationId}
+                          onChange={(updatedAnnotations) => {
+                            const updatedImages = [...slide.images];
+                            updatedImages[safeImgIdx] = {
+                              ...targetImg,
+                              annotations: updatedAnnotations,
+                            };
+                            onUpdateSlide({ ...slide, images: updatedImages });
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
