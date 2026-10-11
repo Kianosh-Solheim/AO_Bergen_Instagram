@@ -497,45 +497,76 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             );
           })()}
 
-          {/* 5. PRESET: SITAT & TEKSTSLIDE MED IKON */}
-          {slide.preset === 'sitat' && (
-            <div className="flex-1 flex flex-col justify-between py-2 min-h-0">
-              {/* Top Icon */}
-              <div className="flex justify-center mb-2">
-                <span className="text-[38px] leading-none filter drop-shadow-xs">
-                  {slide.iconEmoji || '🏛️'}
-                </span>
-              </div>
+          {/* 5. PRESET: SITAT & TEKSTSLIDE MED IKON ELLER AVISLOGO */}
+          {slide.preset === 'sitat' && (() => {
+            const quoteAlign = slide.bodyAlign || slide.titleAlign || 'left';
+            const quoteAlignClass =
+              quoteAlign === 'center'
+                ? 'text-center'
+                : quoteAlign === 'right'
+                ? 'text-right'
+                : 'text-left';
 
-              {/* Body Text / Quote */}
-              <div className="flex-1 flex items-center justify-center">
-                {slide.bodyText ? (
-                  <div 
-                    style={getBodyStyle()}
-                    className="text-[17px] leading-[1.6] text-stone-800 font-normal w-full"
-                  >
-                    {renderHighlightText(slide.bodyText, slide.highlightWords)}
+            const badgeType = slide.topBadgeType || 'emoji';
+            const badgeSize = slide.topBadgeSize ?? (badgeType === 'logo' ? 42 : 38);
+
+            return (
+              <div className="flex-1 flex flex-col justify-between py-2 min-h-0">
+                {/* Top Icon / Newspaper Logo / None */}
+                {badgeType === 'emoji' && (
+                  <div className="flex justify-center mb-2">
+                    <span
+                      style={{ fontSize: `${badgeSize}px`, lineHeight: 1 }}
+                      className="leading-none filter drop-shadow-xs select-none"
+                    >
+                      {slide.iconEmoji || '🏛️'}
+                    </span>
                   </div>
-                ) : (
-                  <div className="text-stone-400 text-[15px] italic text-center border border-dashed border-stone-300 rounded-lg p-6 w-full">
-                    Skriv inn sitat eller tekst i sidepanelet til høyre
+                )}
+
+                {badgeType === 'logo' && slide.topLogoUrl && (
+                  <div className="flex justify-center mb-3">
+                    <img
+                      src={slide.topLogoUrl}
+                      alt="Avislogo"
+                      style={{ height: `${badgeSize}px`, maxWidth: '340px' }}
+                      className="object-contain select-none"
+                    />
+                  </div>
+                )}
+
+                {/* Body Text / Quote */}
+                <div className="flex-1 flex items-center justify-center">
+                  {slide.bodyText ? (
+                    <div 
+                      style={getBodyStyle()}
+                      className={`text-[17px] leading-[1.6] text-stone-800 font-normal w-full ${quoteAlignClass}`}
+                    >
+                      {renderHighlightText(slide.bodyText, slide.highlightWords)}
+                    </div>
+                  ) : (
+                    <div className="text-stone-400 text-[15px] italic text-center border border-dashed border-stone-300 rounded-lg p-6 w-full">
+                      Skriv inn sitat eller tekst i sidepanelet til høyre
+                    </div>
+                  )}
+                </div>
+
+                {/* Source Credit */}
+                {slide.sourceCredit && (
+                  <div className="mt-4 pt-2 border-t border-stone-200/60 text-right">
+                    <span 
+                      style={{
+                        letterSpacing: `${slide.bodyLetterSpacing !== undefined ? slide.bodyLetterSpacing : 0.1}px`,
+                      }}
+                      className="text-[11px] text-stone-500 font-medium"
+                    >
+                      {slide.sourceCredit}
+                    </span>
                   </div>
                 )}
               </div>
-
-              {/* Source Credit */}
-              {slide.sourceCredit && (
-                <div className="mt-4 pt-2 border-t border-stone-200/60 text-right">
-                  <span 
-                    style={getBodyStyle()}
-                    className="text-[11px] text-stone-500 font-medium"
-                  >
-                    {slide.sourceCredit}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* 6. PRESET: UNDERTEKST (BILDE MED TEKST UNDER) */}
           {slide.preset === 'undertekst' && (() => {

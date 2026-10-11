@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage } from '../types';
 import { PRESET_TEMPLATES, SAMPLE_IMAGES } from '../data/defaultPresets';
-import { compressImageFile } from '../lib/imageUtils';
+import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
+import { compressImageFile, compressTransparentLogoFile, removeWhiteBackgroundFromLogo } from '../lib/imageUtils';
 import {
   Palette,
   Type,
@@ -23,6 +24,10 @@ import {
   EyeOff,
   Layers,
   HelpCircle,
+  Newspaper,
+  Ban,
+  AlertTriangle,
+  Wand2,
 } from 'lucide-react';
 
 import { CarouselProject } from "../types";
@@ -59,7 +64,9 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   const [appliedSizeNotice, setAppliedSizeNotice] = useState(false);
   const [appliedPositionNotice, setAppliedPositionNotice] = useState(false);
   const [uploadingImageSlot, setUploadingImageSlot] = useState<number | 'new' | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const sidebarFileInputRef = useRef<HTMLInputElement | null>(null);
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const targetSlotRef = useRef<number | 'new'>('new');
 
   if (!slide) {
@@ -475,27 +482,290 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
 
             {/* Specific inputs for SITAT / TEKSTSLIDE preset */}
             {slide.preset === 'sitat' && (
-              <div className="space-y-3 pt-2 border-t border-stone-200">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700">
-                    Ikon / Emoji på toppen
+              <div className="space-y-3.5 pt-2 border-t border-stone-200">
+                {/* Velg topp-element: Emoji, Avislogo eller Ingen */}
+                <div className="space-y-2.5 bg-stone-50/80 p-3 rounded-xl border border-stone-200">
+                  <label className="block text-xs font-bold text-stone-800">
+                    Topp-element over sitatet
                   </label>
-                  <div className="flex gap-1">
-                    {['⚒️', '🏛️', '📢', '💰', '📉', '✨', '⚠️'].map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => onUpdateSlide({ ...slide, iconEmoji: emoji })}
-                        className={`w-7 h-7 rounded border text-sm flex items-center justify-center ${
-                          slide.iconEmoji === emoji
-                            ? 'border-purple-600 bg-purple-100'
-                            : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'emoji' as const, label: 'Emoji', Icon: Smile },
+                      { id: 'logo' as const, label: 'Avislogo', Icon: Newspaper },
+                      { id: 'none' as const, label: 'Ingen', Icon: Ban },
+                    ].map(({ id, label, Icon }) => {
+                      const activeType = slide.topBadgeType || 'emoji';
+                      const isSelected = activeType === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            if (id === 'logo' && !slide.topLogoUrl) {
+                              const defaultLogo = NEWSPAPER_LOGOS[0];
+                              onUpdateSlide({
+                                ...slide,
+                                topBadgeType: 'logo',
+                                topLogoId: defaultLogo.id,
+                                topLogoUrl: defaultLogo.dataUrl,
+                                topBadgeSize: slide.topBadgeSize ?? 42,
+                              });
+                            } else {
+                              onUpdateSlide({
+                                ...slide,
+                                topBadgeType: id,
+                              });
+                            }
+                          }}
+                          className={`py-2 px-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-purple-600 bg-purple-600 text-white shadow-xs'
+                              : 'border-stone-200 bg-white hover:bg-stone-100 text-stone-700'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* EMOJI VELGER (Alle mulige emojier + hurtigvalg) */}
+                  {(slide.topBadgeType || 'emoji') === 'emoji' && (
+                    <div className="space-y-2 pt-2 border-t border-stone-200/80">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-stone-700">
+                          Skriv inn hvilken som helst emoji:
+                        </span>
+                        <input
+                          type="text"
+                          value={slide.iconEmoji ?? '🏛️'}
+                          onChange={(e) =>
+                            onUpdateSlide({
+                              ...slide,
+                              topBadgeType: 'emoji',
+                              iconEmoji: e.target.value,
+                            })
+                          }
+                          placeholder="🏛️"
+                          className="w-20 px-2 py-1 text-center text-lg border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          title="Lim inn eller skriv hvilken som helst emoji (Win + . eller Cmd + Ctrl + Mellomrom)"
+                        />
+                      </div>
+
+                      <div>
+                        <span className="block text-[10px] text-stone-500 mb-1">
+                          Eller velg blant hurtig-emojier:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            '🏛️', '⚒️', '📢', '💰', '📉', '📈', '✨', '⚠️',
+                            '📰', '💬', '🏗️', '🧱', '🏘️', '🚨', '🤔', '👀',
+                            '💔', '❤️', '🔥', '🛑', '📜', '🔍', '⚖️', '🌧️',
+                          ].map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() =>
+                                onUpdateSlide({
+                                  ...slide,
+                                  topBadgeType: 'emoji',
+                                  iconEmoji: emoji,
+                                })
+                              }
+                              className={`w-7 h-7 rounded border text-sm flex items-center justify-center transition-colors cursor-pointer ${
+                                slide.iconEmoji === emoji
+                                  ? 'border-purple-600 bg-purple-100 ring-1 ring-purple-500'
+                                  : 'border-stone-200 bg-white hover:bg-stone-100'
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Størrelse på emoji */}
+                      <div className="pt-1">
+                        <div className="flex justify-between items-center text-[11px] mb-1">
+                          <span className="font-semibold text-stone-600">Størrelse på emoji</span>
+                          <span className="font-mono font-bold text-stone-700">
+                            {slide.topBadgeSize ?? 38} px
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="22"
+                          max="76"
+                          step="2"
+                          value={slide.topBadgeSize ?? 38}
+                          onChange={(e) =>
+                            onUpdateSlide({
+                              ...slide,
+                              topBadgeSize: parseInt(e.target.value, 10),
+                            })
+                          }
+                          className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AVISLOGO VELGER (BT, BA + Last opp egen logo uten bakgrunn) */}
+                  {slide.topBadgeType === 'logo' && (
+                    <div className="space-y-2.5 pt-2 border-t border-stone-200/80">
+                      <div>
+                        <span className="block text-[11px] font-semibold text-stone-700 mb-1.5">
+                          Velg ferdig avislogo (uten bakgrunn):
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {NEWSPAPER_LOGOS.map((logo) => {
+                            const isSelected =
+                              slide.topLogoId === logo.id || slide.topLogoUrl === logo.dataUrl;
+                            return (
+                              <button
+                                key={logo.id}
+                                type="button"
+                                onClick={() =>
+                                  onUpdateSlide({
+                                    ...slide,
+                                    topBadgeType: 'logo',
+                                    topLogoId: logo.id,
+                                    topLogoUrl: logo.dataUrl,
+                                    sourceCredit:
+                                      !slide.sourceCredit || slide.sourceCredit.startsWith('Kilde:')
+                                        ? logo.defaultSourceCredit
+                                        : slide.sourceCredit,
+                                  })
+                                }
+                                className={`p-2 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'border-purple-600 bg-purple-50/90 ring-1 ring-purple-600'
+                                    : 'border-stone-200 bg-white hover:bg-stone-100'
+                                }`}
+                              >
+                                <div className="h-6 flex items-center justify-center px-1">
+                                  <img
+                                    src={logo.dataUrl}
+                                    alt={logo.name}
+                                    className="max-h-5 max-w-[115px] object-contain"
+                                  />
+                                </div>
+                                <span className="text-[10px] font-bold text-stone-600 truncate max-w-full">
+                                  {logo.shortLabel}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Last opp egen avislogo uten bakgrunn */}
+                      <div className="pt-2 border-t border-stone-200/80 space-y-2">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-[11px] text-amber-900 leading-snug font-medium">
+                            <strong>Viktig:</strong> Logoen du laster opp <strong>kan ikke ha bakgrunn</strong> (bruk gjennomsiktig PNG, SVG eller WebP uten hvit boks rundt).
+                          </p>
+                        </div>
+
+                        <input
+                          ref={logoFileInputRef}
+                          type="file"
+                          accept="image/png,image/svg+xml,image/webp,image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingLogo(true);
+                            try {
+                              const dataUrl = await compressTransparentLogoFile(file);
+                              onUpdateSlide({
+                                ...slide,
+                                topBadgeType: 'logo',
+                                topLogoId: 'custom',
+                                topLogoUrl: dataUrl,
+                              });
+                            } catch (err) {
+                              console.error('Feil ved opplasting av logo:', err);
+                            } finally {
+                              setUploadingLogo(false);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => logoFileInputRef.current?.click()}
+                            disabled={uploadingLogo}
+                            className="flex-1 py-2 px-3 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            {uploadingLogo ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                                <span>Laster opp...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3.5 h-3.5 text-purple-600" />
+                                <span>Last opp avislogo (uten bakgrunn)</span>
+                              </>
+                            )}
+                          </button>
+
+                          {slide.topLogoUrl && slide.topLogoId === 'custom' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!slide.topLogoUrl) return;
+                                setUploadingLogo(true);
+                                try {
+                                  const cleaned = await removeWhiteBackgroundFromLogo(slide.topLogoUrl);
+                                  onUpdateSlide({
+                                    ...slide,
+                                    topLogoUrl: cleaned,
+                                  });
+                                } finally {
+                                  setUploadingLogo(false);
+                                }
+                              }}
+                              title="Har logoen likevel hvit bakgrunn? Klikk for å fjerne hvit bakgrunn automatisk"
+                              className="px-2.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Wand2 className="w-3.5 h-3.5" />
+                              <span>Fjern hvit</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Størrelse på avislogo */}
+                      <div className="pt-1">
+                        <div className="flex justify-between items-center text-[11px] mb-1">
+                          <span className="font-semibold text-stone-600">Størrelse på avislogo</span>
+                          <span className="font-mono font-bold text-stone-700">
+                            {slide.topBadgeSize ?? 42} px
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="88"
+                          step="2"
+                          value={slide.topBadgeSize ?? 42}
+                          onChange={(e) =>
+                            onUpdateSlide({
+                              ...slide,
+                              topBadgeSize: parseInt(e.target.value, 10),
+                            })
+                          }
+                          className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -511,6 +781,97 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     placeholder="Skriv inn rapportutdrag eller sitat her..."
                     className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-normal leading-relaxed"
                   />
+                </div>
+
+                {/* Tekststørrelse på sitatet */}
+                <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-stone-700 flex items-center gap-1.5">
+                      <Type className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Tekststørrelse på sitat</span>
+                    </span>
+                    <span className="font-mono text-xs font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      {slide.bodyFontSize ?? 17} px
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="11"
+                    max="34"
+                    step="1"
+                    value={slide.bodyFontSize ?? 17}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        ...slide,
+                        bodyFontSize: parseInt(e.target.value, 10),
+                      })
+                    }
+                    className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                  />
+                  <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                    {[
+                      { label: 'Liten (14px)', size: 14 },
+                      { label: 'Normal (17px)', size: 17 },
+                      { label: 'Stor (21px)', size: 21 },
+                      { label: 'Ekstra (25px)', size: 25 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.size}
+                        type="button"
+                        onClick={() =>
+                          onUpdateSlide({
+                            ...slide,
+                            bodyFontSize: preset.size,
+                          })
+                        }
+                        className={`py-1 px-1.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
+                          (slide.bodyFontSize ?? 17) === preset.size
+                            ? 'border-purple-600 bg-purple-100 text-purple-900'
+                            : 'border-stone-200 bg-white hover:bg-stone-100 text-stone-600'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tekstjustering på sitatet (Venstre / Sentrert / Høyre) */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Tekstjustering på sitat
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'left' as const, label: 'Venstre', Icon: AlignLeft },
+                      { id: 'center' as const, label: 'Sentrert', Icon: AlignCenter },
+                      { id: 'right' as const, label: 'Høyre', Icon: AlignRight },
+                    ].map(({ id, label, Icon }) => {
+                      const currentAlign = slide.bodyAlign || slide.titleAlign || 'left';
+                      const isSelected = currentAlign === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() =>
+                            onUpdateSlide({
+                              ...slide,
+                              bodyAlign: id,
+                              titleAlign: id,
+                            })
+                          }
+                          className={`py-2 px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-purple-600 bg-purple-50 text-purple-950 ring-1 ring-purple-600 shadow-xs'
+                              : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -902,66 +1263,88 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             <div className="space-y-3 pt-3 border-t border-stone-200">
               <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-stone-500" />
-                Overskriftens Justering & Størrelse
+                {slide.preset === 'sitat' ? 'Sitatets Justering & Størrelse' : 'Overskriftens Justering & Størrelse'}
               </label>
 
               <div className="flex gap-2">
                 <div className="flex-1 bg-stone-100 p-1 rounded-lg flex">
                   <button
                     type="button"
-                    onClick={() => onUpdateSlide({ ...slide, titleAlign: 'left' })}
+                    onClick={() => onUpdateSlide({ ...slide, titleAlign: 'left', bodyAlign: 'left' })}
                     className={`flex-1 py-1.5 rounded flex justify-center ${
-                      slide.titleAlign === 'left'
+                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'left'
                         ? 'bg-white shadow-xs text-stone-900'
                         : 'text-stone-500 hover:text-stone-900'
                     }`}
+                    title="Venstrejustert"
                   >
                     <AlignLeft className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() =>
-                      onUpdateSlide({ ...slide, titleAlign: 'center' })
+                      onUpdateSlide({ ...slide, titleAlign: 'center', bodyAlign: 'center' })
                     }
                     className={`flex-1 py-1.5 rounded flex justify-center ${
-                      slide.titleAlign === 'center'
+                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'center'
                         ? 'bg-white shadow-xs text-stone-900'
                         : 'text-stone-500 hover:text-stone-900'
                     }`}
+                    title="Sentrert"
                   >
                     <AlignCenter className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() =>
-                      onUpdateSlide({ ...slide, titleAlign: 'right' })
+                      onUpdateSlide({ ...slide, titleAlign: 'right', bodyAlign: 'right' })
                     }
                     className={`flex-1 py-1.5 rounded flex justify-center ${
-                      slide.titleAlign === 'right'
+                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'right'
                         ? 'bg-white shadow-xs text-stone-900'
                         : 'text-stone-500 hover:text-stone-900'
                     }`}
+                    title="Høyrejustert"
                   >
                     <AlignRight className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="flex-1">
-                  <select
-                    value={slide.titleSize}
-                    onChange={(e) =>
-                      onUpdateSlide({
-                        ...slide,
-                        titleSize: e.target.value as any,
-                      })
-                    }
-                    className="w-full px-3 py-2 text-xs font-semibold border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="sm">Liten (28px)</option>
-                    <option value="md">Normal (36px)</option>
-                    <option value="lg">Stor (44px)</option>
-                    <option value="xl">Ekstra Stor (54px)</option>
-                  </select>
+                  {slide.preset === 'sitat' ? (
+                    <select
+                      value={slide.bodyFontSize ?? 17}
+                      onChange={(e) =>
+                        onUpdateSlide({
+                          ...slide,
+                          bodyFontSize: parseInt(e.target.value, 10),
+                        })
+                      }
+                      className="w-full px-3 py-2 text-xs font-semibold border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value={14}>Liten (14px)</option>
+                      <option value={17}>Normal (17px)</option>
+                      <option value={21}>Stor (21px)</option>
+                      <option value={25}>Ekstra Stor (25px)</option>
+                      <option value={30}>Kjempe (30px)</option>
+                    </select>
+                  ) : (
+                    <select
+                      value={slide.titleSize}
+                      onChange={(e) =>
+                        onUpdateSlide({
+                          ...slide,
+                          titleSize: e.target.value as any,
+                        })
+                      }
+                      className="w-full px-3 py-2 text-xs font-semibold border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="sm">Liten (28px)</option>
+                      <option value="md">Normal (36px)</option>
+                      <option value="lg">Stor (44px)</option>
+                      <option value="xl">Ekstra Stor (54px)</option>
+                    </select>
+                  )}
                 </div>
               </div>
             </div>

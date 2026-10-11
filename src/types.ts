@@ -131,9 +131,14 @@ export interface Slide {
   highlightWords?: string;      // Ord som skal utheves i rød/gul
   sourceCredit?: string;        // F.eks. "Kilde: Bergens Tidende"
   iconEmoji?: string;           // F.eks. "⚒️", "🏛️", "📢", "💰", "📉"
+  topBadgeType?: 'emoji' | 'logo' | 'none'; // Velg mellom emoji, avislogo (uten bakgrunn), eller ingen
+  topLogoUrl?: string;          // Gjennomsiktig logo-URL eller opplastet PNG/SVG uten bakgrunn
+  topLogoId?: string;           // F.eks. 'bt_full', 'bt_short', 'ba_full', 'ba_badge', 'custom'
+  topBadgeSize?: number;        // Størrelse på emoji/logo på toppen i px
   bgColor: string;             // F.eks. "#fffdf7", "#f7fff7", "#f7f9ff"
   font: BrandFont;
   titleAlign: 'center' | 'left' | 'right';
+  bodyAlign?: 'center' | 'left' | 'right';
   titleSize: 'sm' | 'md' | 'lg' | 'xl';
   spacingGap: 'tight' | 'normal' | 'relaxed';
   galleryLayout?: 'vertical' | 'horizontal' | 'grid'; // Layout for flerbilde

@@ -183,6 +183,117 @@ export function compressDataUrlIfNeeded(
 }
 
 /**
+ * Reads an uploaded logo file (PNG, SVG, WebP) and preserves 100% transparency without any background fill.
+ */
+export function compressTransparentLogoFile(
+  file: File,
+  maxDim: number = 600,
+  targetMaxChars: number = 120_000
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Kunne ikke lese logofilen'));
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) {
+        reject(new Error('Tom logofil'));
+        return;
+      }
+
+      if (file.type === 'image/svg+xml' && rawDataUrl.length <= targetMaxChars) {
+        resolve(rawDataUrl);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let width = img.naturalWidth || img.width || 400;
+          let height = img.naturalHeight || img.height || 120;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.max(1, Math.round((height * maxDim) / width));
+              width = maxDim;
+            } else {
+              width = Math.max(1, Math.round((width * maxDim) / height));
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(rawDataUrl);
+            return;
+          }
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          let out = canvas.toDataURL('image/webp', 0.9);
+          if (!out.startsWith('data:image/webp') || out.length > targetMaxChars) {
+            out = canvas.toDataURL('image/png');
+          }
+          resolve(out);
+        } catch {
+          resolve(rawDataUrl);
+        }
+      };
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Removes solid white/near-white background from a logo Data URL so it becomes transparent.
+ */
+export function removeWhiteBackgroundFromLogo(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const width = img.naturalWidth || img.width || 400;
+        const height = img.naturalHeight || img.height || 120;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i];
+          const g = d[i + 1];
+          const b = d[i + 2];
+          // Make near-white pixels transparent with smooth feathering
+          if (r > 235 && g > 235 && b > 235) {
+            d[i + 3] = 0;
+          } else if (r > 215 && g > 215 && b > 215) {
+            const avg = (r + g + b) / 3;
+            const factor = Math.max(0, (235 - avg) / 20);
+            d[i + 3] = Math.round(d[i + 3] * factor);
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/**
  * Optimizes all computer-uploaded (`data:image/...`) images across all slides in a project
  * so that the entire project can be reliably saved as a draft in Firestore and localStorage.
  */
@@ -202,6 +313,9 @@ export async function optimizeProjectImagesForStorage(
         uploadedImageCount++;
       }
     }
+    if (slide.topLogoUrl && slide.topLogoUrl.startsWith('data:image/') && !slide.topLogoUrl.startsWith('data:image/svg+xml')) {
+      uploadedImageCount++;
+    }
   }
 
   if (uploadedImageCount === 0) {
@@ -216,7 +330,22 @@ export async function optimizeProjectImagesForStorage(
 
   const optimizedSlides: Slide[] = await Promise.all(
     project.slides.map(async (slide) => {
-      if (!slide.images || slide.images.length === 0) return slide;
+      let updatedLogoUrl = slide.topLogoUrl;
+      if (
+        updatedLogoUrl &&
+        updatedLogoUrl.startsWith('data:image/') &&
+        !updatedLogoUrl.startsWith('data:image/svg+xml')
+      ) {
+        updatedLogoUrl = await compressDataUrlIfNeeded(updatedLogoUrl, Math.min(120_000, perImageBudget), 600);
+      }
+
+      if (!slide.images || slide.images.length === 0) {
+        if (updatedLogoUrl !== slide.topLogoUrl) {
+          return { ...slide, topLogoUrl: updatedLogoUrl };
+        }
+        return slide;
+      }
+
       const optimizedImages: SlideImage[] = await Promise.all(
         slide.images.map(async (img) => {
           if (!img?.url || !img.url.startsWith('data:image/')) {
@@ -232,6 +361,7 @@ export async function optimizeProjectImagesForStorage(
       );
       return {
         ...slide,
+        topLogoUrl: updatedLogoUrl,
         images: optimizedImages,
       };
     })
