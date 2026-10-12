@@ -1,5 +1,5 @@
 import React from 'react';
-import { Slide, SlidePresetType } from '../types';
+import { Slide, SlidePresetType, PostAspectRatio } from '../types';
 import { PRESET_TEMPLATES } from '../data/defaultPresets';
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
 
 interface SlideStripProps {
   slides: Slide[];
+  aspectRatio?: PostAspectRatio;
   activeSlideIndex: number;
   onSelectSlide: (index: number) => void;
   onAddSlide: (preset?: SlidePresetType) => void;
@@ -24,6 +25,7 @@ interface SlideStripProps {
 
 export const SlideStrip: React.FC<SlideStripProps> = ({
   slides,
+  aspectRatio = '4:5',
   activeSlideIndex,
   onSelectSlide,
   onAddSlide,
@@ -32,6 +34,17 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
   onMoveSlide,
   onOpenCarouselPreview,
 }) => {
+  const thumbSizeClass =
+    aspectRatio === '16:9'
+      ? 'w-20 h-12'
+      : aspectRatio === '4:3'
+      ? 'w-16 h-12'
+      : aspectRatio === '9:16'
+      ? 'w-10 h-16'
+      : aspectRatio === '1:1'
+      ? 'w-13 h-13'
+      : 'w-12 h-15';
+
   return (
     <div className="bg-stone-900 text-white px-2 sm:px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-stone-800 flex items-center justify-between gap-2 sm:gap-4 z-20 select-none">
       {/* Left Info & Previous Arrow */}
@@ -79,9 +92,9 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
               }`}
               onClick={() => onSelectSlide(index)}
             >
-              {/* Mini Slide Card (4:5 ratio) */}
+              {/* Mini Slide Card */}
               <div
-                className="w-12 h-15 rounded-xs flex flex-col justify-between p-1 overflow-hidden relative shadow-inner select-none"
+                className={`${thumbSizeClass} rounded-xs flex flex-col justify-between p-1 overflow-hidden relative shadow-inner select-none`}
                 style={{ backgroundColor: bg }}
               >
                 <span className="text-[8px] font-bold text-stone-800 truncate leading-none">

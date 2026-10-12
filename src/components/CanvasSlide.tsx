@@ -1,5 +1,5 @@
 import React, { Fragment, useState, useRef, useEffect, MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { Slide, BrandFont, SlideImage } from '../types';
+import { Slide, BrandFont, SlideImage, PostAspectRatio, getPostFormatConfig } from '../types';
 import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
 import { compressImageFile } from '../lib/imageUtils';
 import { ImageAnnotationLayer } from './ImageAnnotationLayer';
@@ -22,6 +22,7 @@ import {
 
 interface CanvasSlideProps {
   slide: Slide;
+  aspectRatio?: PostAspectRatio;
   showPurpleGuide?: boolean;
   showInstagramUi?: boolean;
   instagramHandle?: string;
@@ -35,6 +36,7 @@ interface CanvasSlideProps {
 
 export const CanvasSlide: React.FC<CanvasSlideProps> = ({
   slide,
+  aspectRatio = '4:5',
   showPurpleGuide = true,
   showInstagramUi = false,
   instagramHandle = 'ao_bergen',
@@ -45,6 +47,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
   interactive = true,
   canvasRef,
 }) => {
+  const formatConfig = getPostFormatConfig(aspectRatio);
+  const isLandscape = formatConfig.width > formatConfig.height;
+  const isTallVertical = aspectRatio === '9:16';
   const getFontClass = (font: BrandFont) => {
     switch (font) {
       case 'comic':
@@ -86,12 +91,42 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
     }
   };
 
+  const getAlignClass = (align?: 'left' | 'center' | 'right' | 'justify', fallback: 'left' | 'center' | 'right' | 'justify' = 'center') => {
+    const resolved = align || fallback;
+    switch (resolved) {
+      case 'left':
+        return 'text-left';
+      case 'right':
+        return 'text-right';
+      case 'justify':
+        return 'text-justify';
+      case 'center':
+      default:
+        return 'text-center';
+    }
+  };
+
   const getTitleStyle = (): React.CSSProperties => {
     const spacing = slide.titleLetterSpacing !== undefined ? slide.titleLetterSpacing : 0.5;
     const style: React.CSSProperties = { letterSpacing: `${spacing}px` };
     if (slide.titleFontSize !== undefined) {
       style.fontSize = `${slide.titleFontSize}px`;
       style.lineHeight = 1.14;
+    }
+    return style;
+  };
+
+  const getSuperTitleStyle = (): React.CSSProperties => {
+    const spacing =
+      slide.superTitleLetterSpacing !== undefined
+        ? slide.superTitleLetterSpacing
+        : slide.subtitleLetterSpacing !== undefined
+        ? slide.subtitleLetterSpacing
+        : 0.3;
+    const style: React.CSSProperties = { letterSpacing: `${spacing}px` };
+    if (slide.superTitleFontSize !== undefined) {
+      style.fontSize = `${slide.superTitleFontSize}px`;
+      style.lineHeight = 1.25;
     }
     return style;
   };
@@ -163,8 +198,18 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
       return renderImageSlot(undefined, 0, placeholderLabel, customHeightClass);
     }
     
-    if (images.length === 1) {
-      return renderImageSlot(images[0], 0, placeholderLabel, customHeightClass);
+    const isSingleImagePreset =
+      slide.preset === 'hook' ||
+      slide.preset === 'prislapp' ||
+      slide.preset === 'undertekst' ||
+      slide.preset === 'meme';
+
+    const effectiveImages = isSingleImagePreset
+      ? images.filter((im, idx) => idx === 0 || Boolean(im?.url && im.url.trim()))
+      : images;
+
+    if (effectiveImages.length <= 1) {
+      return renderImageSlot(effectiveImages[0], 0, placeholderLabel, customHeightClass);
     }
     
     // Multiple images -> gallery layout
@@ -205,11 +250,13 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
   return (
     <div
-      className="relative select-none origin-center flex-shrink-0 transition-transform shadow-2xl"
+      className={`relative select-none origin-center flex-shrink-0 transition-transform ${
+        interactive ? 'shadow-2xl' : ''
+      }`}
       style={{
-        width: '540px',
-        height: '675px', // 4:5 aspect ratio (540x675 = 0.5x scale of 1080x1350 for sharp preview)
-        transform: `scale(${scale})`,
+        width: `${formatConfig.width}px`,
+        height: `${formatConfig.height}px`,
+        transform: scale !== 1 ? `scale(${scale})` : undefined,
       }}
     >
       {/* Main Slide Canvas Container */}
@@ -253,18 +300,34 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
         {showPurpleGuide && (
           <div
             id="purple-safe-guide"
-            className="pointer-events-none absolute inset-x-8 inset-y-10 border border-purple-500/70 border-dashed rounded-xs z-30"
+            className={`pointer-events-none absolute border border-purple-500/70 border-dashed rounded-xs z-30 ${
+              isLandscape
+                ? 'inset-x-10 inset-y-6'
+                : isTallVertical
+                ? 'inset-x-8 inset-y-14'
+                : 'inset-x-8 inset-y-10'
+            }`}
           >
             <div className="absolute top-1 left-2 bg-purple-600/90 text-[9px] font-medium text-white px-1.5 py-0.5 rounded tracking-wide uppercase">
-              Lilla justeringsramme (Sikkerhetssone)
+              Lilla justeringsramme ({formatConfig.shortLabel})
             </div>
           </div>
         )}
 
         {/* Main Content Area - Strictly padded to align with the recipe */}
         <div
-          className={`relative flex-1 flex flex-col px-8 py-7 z-10 overflow-hidden ${
-            showInstagramUi ? 'pt-3 pb-4' : 'pt-9 pb-8'
+          className={`relative flex-1 flex flex-col z-10 overflow-hidden ${
+            isLandscape
+              ? showInstagramUi
+                ? 'px-10 pt-2.5 pb-3'
+                : 'px-10 pt-6 pb-6'
+              : isTallVertical
+              ? showInstagramUi
+                ? 'px-8 pt-4 pb-5'
+                : 'px-8 pt-14 pb-14'
+              : showInstagramUi
+              ? 'px-8 pt-3 pb-4'
+              : 'px-8 pt-9 pb-8'
           }`}
         >
           {/* 1. PRESET: HOOK / ENKELT BILDE */}
@@ -272,18 +335,12 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             const isBelow = slide.titlePosition === 'below';
             const headerElement = (
               <div
-                className={`flex flex-col ${isBelow ? 'mt-3.5 mb-1' : 'mb-3.5'} ${
-                  slide.titleAlign === 'center'
-                    ? 'items-center text-center'
-                    : slide.titleAlign === 'right'
-                    ? 'items-end text-right'
-                    : 'items-start text-left'
-                }`}
+                className={`flex flex-col w-full ${isBelow ? 'mt-3.5 mb-1' : 'mb-3.5'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -291,9 +348,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h1
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 ${
+                    className={`w-full font-bold text-stone-900 ${
                       !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                    }`}
+                    } ${getAlignClass(slide.titleAlign, 'center')}`}
                   >
                     {slide.title}
                   </h1>
@@ -301,7 +358,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.subtitle && (
                   <p 
                     style={getSubtitleStyle()}
-                    className="mt-1 text-[17px] text-stone-700 font-medium leading-snug"
+                    className={`w-full mt-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
                   >
                     {slide.subtitle}
                   </p>
@@ -333,44 +390,72 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {/* 2. PRESET: FRA DETTE / TIL DETTE (FØR & ETTER) */}
           {slide.preset === 'fra_til' && (() => {
             const isBelow = slide.titlePosition === 'below';
-            const titleElement = slide.title ? (
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
               <div
-                style={getTitleStyle()}
-                className={`text-${slide.titleAlign} ${
-                  !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                } font-bold ${isBelow ? 'mt-2 mb-1' : 'mb-1'}`}
+                className={`w-full ${isBelow ? 'mt-2 mb-1' : 'mb-1'}`}
               >
-                {slide.title}
+                {slide.superTitle && (
+                  <p
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-0.5 text-[16px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <div
+                    style={getTitleStyle()}
+                    className={`w-full ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    } font-bold text-stone-900 ${getAlignClass(slide.titleAlign, 'center')}`}
+                  >
+                    {slide.title}
+                  </div>
+                )}
+                {slide.subtitle && (
+                  <p
+                    style={getSubtitleStyle()}
+                    className={`w-full mt-0.5 text-[16px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
               </div>
             ) : null;
 
             return (
               <div className="flex-1 flex flex-col justify-between gap-3 min-h-0">
-                {!isBelow && titleElement}
+                {!isBelow && headerElement}
 
-                {/* Image 1: Fra dette */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <p 
-                    style={getSubtitleStyle()}
-                    className="text-[18px] font-bold text-stone-900 mb-1"
-                  >
-                    {slide.images[0]?.caption || 'Fra dette:'}
-                  </p>
-                  {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-0')}
+                <div
+                  className={`flex-1 flex ${
+                    isLandscape ? 'flex-row gap-4' : 'flex-col gap-3'
+                  } justify-between min-h-0`}
+                >
+                  {/* Image 1: Fra dette */}
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <p
+                      style={getSubtitleStyle()}
+                      className="text-[18px] font-bold text-stone-900 mb-1"
+                    >
+                      {slide.images[0]?.caption || 'Fra dette:'}
+                    </p>
+                    {renderImageSlot(slide.images[0], 0, 'Last opp bilde (Fra dette)', 'flex-1 min-h-0')}
+                  </div>
+
+                  {/* Image 2: Til dette */}
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <p
+                      style={getSubtitleStyle()}
+                      className="text-[18px] font-bold text-stone-900 mb-1"
+                    >
+                      {slide.images[1]?.caption || 'Til dette:'}
+                    </p>
+                    {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-0')}
+                  </div>
                 </div>
 
-                {/* Image 2: Til dette */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <p 
-                    style={getSubtitleStyle()}
-                    className="text-[18px] font-bold text-stone-900 mb-1"
-                  >
-                    {slide.images[1]?.caption || 'Til dette:'}
-                  </p>
-                  {renderImageSlot(slide.images[1], 1, 'Last opp bilde (Til dette)', 'flex-1 min-h-0')}
-                </div>
-
-                {isBelow && titleElement}
+                {isBelow && headerElement}
               </div>
             );
           })()}
@@ -380,14 +465,12 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             const isBelow = slide.titlePosition === 'below';
             const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
               <div
-                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
-                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                }`}
+                className={`w-full ${isBelow ? 'mt-3 mb-1' : 'mb-3'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[15px] text-stone-600 font-medium"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[15px] text-stone-600 font-medium ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -395,9 +478,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h2
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 ${
+                    className={`w-full font-bold text-stone-900 ${
                       !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                    }`}
+                    } ${getAlignClass(slide.titleAlign, 'center')}`}
                   >
                     {slide.title}
                   </h2>
@@ -405,7 +488,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.subtitle && (
                   <p 
                     style={getSubtitleStyle()}
-                    className="text-[15px] text-stone-600 font-medium mt-0.5"
+                    className={`w-full text-[15px] text-stone-600 font-medium mt-0.5 ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
                   >
                     {slide.subtitle}
                   </p>
@@ -436,16 +519,14 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {/* 4. PRESET: PRISLAPP / NØKKELTALL */}
           {slide.preset === 'prislapp' && (() => {
             const isBelow = slide.titlePosition === 'below';
-            const headerElement = (slide.superTitle || slide.title || slide.priceValue) ? (
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle || slide.priceValue) ? (
               <div
-                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
-                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                }`}
+                className={`w-full ${isBelow ? 'mt-3 mb-1' : 'mb-3'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -453,16 +534,24 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h2
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 ${
+                    className={`w-full font-bold text-stone-900 ${
                       !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                    }`}
+                    } ${getAlignClass(slide.titleAlign, 'center')}`}
                   >
                     {slide.title}
                   </h2>
                 )}
+                {slide.subtitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className={`w-full mt-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
 
                 {slide.priceValue && (
-                  <div className="mt-2">
+                  <div className={`mt-2 w-full ${getAlignClass(slide.titleAlign, 'center')}`}>
                     <span 
                       style={getSubtitleStyle()}
                       className="text-[14px] uppercase tracking-wider text-stone-600 font-bold block"
@@ -503,12 +592,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {/* 5. PRESET: SITAT & TEKSTSLIDE MED IKON ELLER AVISLOGO */}
           {slide.preset === 'sitat' && (() => {
             const quoteAlign = slide.bodyAlign || slide.titleAlign || 'left';
-            const quoteAlignClass =
-              quoteAlign === 'center'
-                ? 'text-center'
-                : quoteAlign === 'right'
-                ? 'text-right'
-                : 'text-left';
+            const quoteAlignClass = getAlignClass(quoteAlign, 'left');
 
             const badgeType = slide.topBadgeType || 'emoji';
             const badgeSize = slide.topBadgeSize ?? (badgeType === 'logo' ? 42 : 38);
@@ -580,14 +664,12 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             const isBelow = slide.titlePosition === 'below';
             const topHeader = (slide.superTitle || slide.title) ? (
               <div
-                className={`${isBelow ? 'mt-2.5 mb-1' : 'mb-2.5'} ${
-                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                }`}
+                className={`w-full ${isBelow ? 'mt-2.5 mb-1' : 'mb-2.5'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[17px] text-stone-900 font-semibold leading-snug"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-900 font-semibold leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -595,9 +677,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h2
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 ${
+                    className={`w-full font-bold text-stone-900 ${
                       !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                    }`}
+                    } ${getAlignClass(slide.titleAlign, 'left')}`}
                   >
                     {slide.title}
                   </h2>
@@ -613,10 +695,10 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
 
                 {/* Subtitle / Caption Underneath */}
                 {slide.subtitle && (
-                  <div className="mt-2.5">
+                  <div className="mt-2.5 w-full">
                     <p 
                       style={getSubtitleStyle()}
-                      className="text-[17px] font-semibold text-stone-900 leading-snug"
+                      className={`w-full text-[17px] font-semibold text-stone-900 leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
                     >
                       {slide.subtitle}
                     </p>
@@ -642,14 +724,12 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             const isBelow = slide.titlePosition === 'below';
             const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
               <div
-                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
-                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                }`}
+                className={`w-full ${isBelow ? 'mt-3 mb-1' : 'mb-3'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[17px] font-bold text-stone-800 whitespace-pre-line leading-tight"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] font-bold text-stone-800 whitespace-pre-line leading-tight ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -657,9 +737,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h2
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 leading-tight ${
+                    className={`w-full font-bold text-stone-900 leading-tight ${
                       slide.font === 'comic' ? 'font-comic' : 'font-agrandir'
-                    } ${!slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''}`}
+                    } ${!slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''} ${getAlignClass(slide.titleAlign, 'center')}`}
                   >
                     {slide.title}
                   </h2>
@@ -667,7 +747,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.subtitle && (
                   <p 
                     style={getSubtitleStyle()}
-                    className="text-[17px] font-bold text-stone-800 mt-1 whitespace-pre-line leading-tight"
+                    className={`w-full text-[17px] font-bold text-stone-800 mt-1 whitespace-pre-line leading-tight ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
                   >
                     {slide.subtitle}
                   </p>
@@ -727,16 +807,14 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           {/* 8. PRESET: SIDE BY SIDE SAMMENLIGNING */}
           {slide.preset === 'side_by_side' && (() => {
             const isBelow = slide.titlePosition === 'below';
-            const headerElement = (slide.superTitle || slide.title) ? (
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
               <div
-                className={`${isBelow ? 'mt-3 mb-1' : 'mb-3'} ${
-                  slide.titleAlign === 'center' ? 'text-center' : 'text-left'
-                }`}
+                className={`w-full ${isBelow ? 'mt-3 mb-1' : 'mb-3'}`}
               >
                 {slide.superTitle && (
                   <p 
-                    style={getSubtitleStyle()}
-                    className="mb-1 text-[17px] text-stone-700 font-medium leading-snug"
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
                   >
                     {slide.superTitle}
                   </p>
@@ -744,12 +822,20 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 {slide.title && (
                   <h2
                     style={getTitleStyle()}
-                    className={`font-bold text-stone-900 ${
+                    className={`w-full font-bold text-stone-900 ${
                       !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
-                    }`}
+                    } ${getAlignClass(slide.titleAlign, 'center')}`}
                   >
                     {slide.title}
                   </h2>
+                )}
+                {slide.subtitle && (
+                  <p 
+                    style={getSubtitleStyle()}
+                    className={`w-full mt-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.subtitle}
+                  </p>
                 )}
               </div>
             ) : null;
@@ -883,29 +969,26 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
     }
   };
 
+  const [useProxyFallback, setUseProxyFallback] = useState(false);
+
   // Sync state if img changes externally
   useEffect(() => {
     if (img) {
       setPosOffset({ x: img.positionX ?? 50, y: img.positionY ?? 50 });
     }
-  }, [img?.positionX, img?.positionY]);
+    setUseProxyFallback(false);
+  }, [img?.url, img?.positionX, img?.positionY]);
 
-  
-  
-  
-  
-  const getProxiedUrl = (url: string | undefined) => {
+  const getDisplayUrl = (url: string | undefined) => {
     if (!url) return '';
-    if (url.startsWith('data:')) return url;
-    if (url.startsWith('blob:')) return url;
-    if (url.includes('wsrv.nl')) return url;
-    if (url.includes('images.unsplash.com')) return url; // Unsplash is already CORS friendly
-    
-    // Bruk wsrv.nl som en pålitelig bilde-proxy for statiske sider (siden Github Pages ikke kjører Node.js backend)
-    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+    if (useProxyFallback && !url.includes('wsrv.nl')) {
+      return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+    }
+    return url;
   };
 
-  const hasImage = Boolean(img?.url);
+  const hasImage = Boolean(img?.url && img.url.trim());
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!interactive || !hasImage) return;
@@ -1067,7 +1150,10 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative ${customHeightClass} rounded-sm overflow-hidden bg-stone-200/90 shadow-xs flex flex-col group ${
+      data-export-img-slot={index}
+      className={`relative ${customHeightClass} rounded-sm overflow-hidden flex flex-col group ${
+        interactive ? 'bg-stone-200/90 shadow-xs' : 'bg-transparent'
+      } ${
         interactive && isDragMode ? 'cursor-grab active:cursor-grabbing' : interactive ? 'cursor-pointer' : ''
       } ${isFileHovering ? 'ring-4 ring-purple-500' : ''}`}
       onClick={handleClick}
@@ -1093,14 +1179,19 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
         onClick={(e) => e.stopPropagation()}
       />
       <img
-        src={getProxiedUrl(img.url)}
-        crossOrigin={img.url && img.url.startsWith('http') ? 'anonymous' : undefined}
+        data-export-img-el={index}
+        src={getDisplayUrl(img.url)}
+        onError={() => {
+          if (!useProxyFallback && img.url && img.url.startsWith('http')) {
+            setUseProxyFallback(true);
+          }
+        }}
         alt={img.caption || slide.title || 'Slide bilde'}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover block"
         style={{
-          transform: `scale(${img.zoom || 1})`,
+          transform: (img.zoom && img.zoom !== 1) ? `scale(${img.zoom})` : undefined,
           objectPosition: `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%`,
-          transformOrigin: `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%`,
+          transformOrigin: (img.zoom && img.zoom !== 1) ? `${interactive ? posOffset.x : (img.positionX ?? 50)}% ${interactive ? posOffset.y : (img.positionY ?? 50)}%` : undefined,
         }}
       />
 
@@ -1130,7 +1221,10 @@ const InteractiveImageSlot: React.FC<InteractiveImageSlotProps> = ({
         </div>
       )}
       {img.labelTag && (
-        <div className="absolute top-2.5 right-2.5 bg-stone-900/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-md border border-white/20 z-10 pointer-events-none">
+        <div
+          style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}
+          className="absolute top-2.5 right-2.5 bg-stone-900/90 text-white text-[11px] font-semibold px-2.5 py-1 rounded z-10 pointer-events-none"
+        >
           {img.labelTag}
         </div>
       )}

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage } from '../types';
+import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage, CarouselProject, POST_FORMATS, PostAspectRatio, getPostFormatConfig, TextAlignOption } from '../types';
 import { PRESET_TEMPLATES, SAMPLE_IMAGES } from '../data/defaultPresets';
 import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
 import { compressImageFile, compressTransparentLogoFile, removeWhiteBackgroundFromLogo } from '../lib/imageUtils';
@@ -21,6 +21,7 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  AlignJustify,
   Eye,
   EyeOff,
   Layers,
@@ -30,9 +31,8 @@ import {
   AlertTriangle,
   Wand2,
   ArrowUpRight,
+  Ratio,
 } from 'lucide-react';
-
-import { CarouselProject } from "../types";
 interface EditorSidebarProps {
   project?: CarouselProject;
   onUpdateProject?: (project: CarouselProject) => void;
@@ -107,10 +107,73 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
     const factory = PRESET_TEMPLATES[newPreset]?.slideFactory;
     if (factory) {
       const templateSlide = factory();
+
+      // Merge existing images with the new preset's required image slots so uploaded images,
+      // captions, annotations, and credits are never lost when switching presets
+      const existingImages = slide.images || [];
+      const templateImages = templateSlide.images || [];
+      const isTargetTwoSlotPreset =
+        newPreset === 'fra_til' || newPreset === 'flerbilde' || newPreset === 'side_by_side';
+      const defaultAutoCaptions = ['Fra dette:', 'Til dette:', 'Bilde 1', 'Bilde 2'];
+
+      const maxSlots = isTargetTwoSlotPreset
+        ? Math.max(existingImages.length, templateImages.length)
+        : Math.max(1, existingImages.filter((im, idx) => idx === 0 || Boolean(im?.url && im.url.trim())).length);
+
+      const mergedImages: SlideImage[] = [];
+
+      for (let i = 0; i < maxSlots; i++) {
+        const existing = existingImages[i];
+        const tmpl = templateImages[i];
+        if (existing) {
+          // Skip empty extra slots when switching back to a single-image preset like 'hook'
+          if (!isTargetTwoSlotPreset && i > 0 && (!existing.url || !existing.url.trim())) {
+            continue;
+          }
+          const isOldDefaultCaption = existing.caption && defaultAutoCaptions.includes(existing.caption);
+          mergedImages.push({
+            ...existing,
+            caption: isTargetTwoSlotPreset
+              ? isOldDefaultCaption
+                ? tmpl?.caption || existing.caption
+                : existing.caption || tmpl?.caption || ''
+              : isOldDefaultCaption
+              ? ''
+              : existing.caption || '',
+          });
+        } else if (tmpl) {
+          mergedImages.push(tmpl);
+        }
+      }
+
       onUpdateSlide({
         ...templateSlide,
-        id: slide.id, // keep current slide ID
-        bgColor: slide.bgColor, // preserve chosen brand color
+        ...slide,
+        preset: newPreset,
+        id: slide.id,
+        bgColor: slide.bgColor || templateSlide.bgColor,
+        // Keep user's text fields (or template defaults if empty)
+        superTitle: slide.superTitle ?? templateSlide.superTitle ?? '',
+        title: slide.title || templateSlide.title || '',
+        subtitle: slide.subtitle ?? templateSlide.subtitle ?? '',
+        bodyText: slide.bodyText || templateSlide.bodyText || '',
+        highlightWords: slide.highlightWords ?? templateSlide.highlightWords ?? '',
+        sourceCredit: slide.sourceCredit || templateSlide.sourceCredit || '',
+        priceValue: slide.priceValue || templateSlide.priceValue || '',
+        headingTag: slide.headingTag || templateSlide.headingTag,
+        showRealityTag:
+          newPreset === 'meme'
+            ? slide.showRealityTag ?? true
+            : slide.showRealityTag,
+        speechBubble: slide.speechBubble || templateSlide.speechBubble,
+        // Switch font automatically only when entering/leaving 'meme' unless user explicitly chose something else
+        font:
+          newPreset === 'meme'
+            ? 'comic'
+            : slide.font === 'comic' && slide.preset === 'meme'
+            ? templateSlide.font
+            : slide.font || templateSlide.font,
+        images: mergedImages,
       });
     }
   };
@@ -295,6 +358,81 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         {/* TAB 1: INNHOLD & LAYOUT */}
         {activeTab === 'content' && (
           <>
+            {/* Format på innlegg (4:5, 9:16 Vertikal, 16:9 Horisontal, 1:1, 4:3) */}
+            {project && onUpdateProject && (
+              <div className="space-y-2 pb-4 border-b border-stone-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Ratio className="w-3.5 h-3.5 text-purple-600" />
+                    Format på innlegg
+                  </label>
+                  <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    {getPostFormatConfig(project.aspectRatio).exportWidth} × {getPostFormatConfig(project.aspectRatio).exportHeight} px
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {(Object.keys(POST_FORMATS) as PostAspectRatio[]).map((ratioKey) => {
+                    const fmt = POST_FORMATS[ratioKey];
+                    const currentRatio = project.aspectRatio || '4:5';
+                    const isSelected = currentRatio === ratioKey;
+                    return (
+                      <button
+                        key={ratioKey}
+                        type="button"
+                        onClick={() =>
+                          onUpdateProject({
+                            ...project,
+                            aspectRatio: ratioKey,
+                          })
+                        }
+                        className={`p-2 rounded-lg border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                          isSelected
+                            ? 'border-purple-600 bg-purple-50/90 text-purple-950 ring-1 ring-purple-600 shadow-2xs'
+                            : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50 text-stone-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-[11px] truncate">
+                            {fmt.shortLabel}
+                          </span>
+                          <span
+                            className={`inline-block border rounded-[2px] flex-shrink-0 ${
+                              isSelected
+                                ? 'border-purple-700 bg-purple-200'
+                                : 'border-stone-400 bg-stone-200'
+                            }`}
+                            style={{
+                              width:
+                                ratioKey === '16:9'
+                                  ? '16px'
+                                  : ratioKey === '4:3'
+                                  ? '14px'
+                                  : ratioKey === '9:16'
+                                  ? '9px'
+                                  : '11px',
+                              height:
+                                ratioKey === '16:9'
+                                  ? '9px'
+                                  : ratioKey === '4:3'
+                                  ? '10px'
+                                  : ratioKey === '9:16'
+                                  ? '16px'
+                                  : ratioKey === '1:1'
+                                  ? '11px'
+                                  : '14px',
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-stone-500 truncate mt-0.5">
+                          {fmt.exportWidth}×{fmt.exportHeight}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Preset Selector */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -331,12 +469,69 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             </div>
 
             {/* Title / Heading Inputs */}
-            {slide.preset !== 'fra_til' && slide.preset !== 'sitat' && (
+            {slide.preset !== 'sitat' && (
               <div className="space-y-3 pt-2 border-t border-stone-200">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Overoverskrift (valgfritt)
-                  </label>
+                {/* 1. Overoverskrift */}
+                <div className="space-y-1.5 bg-stone-50/70 p-2.5 rounded-lg border border-stone-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-bold text-stone-700">
+                      Overoverskrift (valgfritt)
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      {/* Independent alignment buttons for Overoverskrift */}
+                      <div className="flex bg-white border border-stone-200 rounded-md p-0.5 shadow-2xs">
+                        {(
+                          [
+                            { id: 'left' as TextAlignOption, label: 'Venstrejustert', Icon: AlignLeft },
+                            { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                            { id: 'right' as TextAlignOption, label: 'Høyrejustert', Icon: AlignRight },
+                            { id: 'justify' as TextAlignOption, label: 'Blokkjustert', Icon: AlignJustify },
+                          ]
+                        ).map(({ id, label, Icon }) => {
+                          const currentAlign = slide.superTitleAlign || slide.titleAlign || 'center';
+                          const isSelected = currentAlign === id;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() =>
+                                onUpdateSlide({
+                                  ...slide,
+                                  superTitleAlign: id,
+                                })
+                              }
+                              title={`Overoverskrift: ${label}`}
+                              className={`p-1 rounded transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white shadow-2xs'
+                                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Icon className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input
+                        type="range"
+                        min="11"
+                        max="36"
+                        step="1"
+                        value={slide.superTitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)}
+                        onChange={(e) =>
+                          onUpdateSlide({
+                            ...slide,
+                            superTitleFontSize: parseInt(e.target.value, 10),
+                          })
+                        }
+                        className="w-14 accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                        title="Størrelse på overoverskrift"
+                      />
+                      <span className="font-mono text-[10px] font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 min-w-[36px] text-center">
+                        {slide.superTitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)}px
+                      </span>
+                    </div>
+                  </div>
                   <input
                     type="text"
                     placeholder="F.eks. «Nytt varsel:»"
@@ -344,17 +539,87 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     onChange={(e) =>
                       onUpdateSlide({ ...slide, superTitle: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
+
+                {/* 2. Overskrift (Hovedtittel) */}
+                <div className="space-y-1.5 bg-stone-50/70 p-2.5 rounded-lg border border-stone-200">
+                  <div className="flex items-center justify-between gap-2">
                     <label className="text-xs font-bold text-stone-700">
-                      Overskrift (Agrandir font)
+                      Overskrift (Hovedtittel)
                     </label>
-                    <span className="text-[10px] text-stone-400">
-                      Vises innenfor lilla ramme
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {/* Independent alignment buttons for Overskrift */}
+                      <div className="flex bg-white border border-stone-200 rounded-md p-0.5 shadow-2xs">
+                        {(
+                          [
+                            { id: 'left' as TextAlignOption, label: 'Venstrejustert', Icon: AlignLeft },
+                            { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                            { id: 'right' as TextAlignOption, label: 'Høyrejustert', Icon: AlignRight },
+                            { id: 'justify' as TextAlignOption, label: 'Blokkjustert', Icon: AlignJustify },
+                          ]
+                        ).map(({ id, label, Icon }) => {
+                          const currentAlign = slide.titleAlign || 'center';
+                          const isSelected = currentAlign === id;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() =>
+                                onUpdateSlide({
+                                  ...slide,
+                                  titleAlign: id,
+                                })
+                              }
+                              title={`Overskrift: ${label}`}
+                              className={`p-1 rounded transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white shadow-2xs'
+                                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Icon className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input
+                        type="range"
+                        min="20"
+                        max="72"
+                        step="1"
+                        value={
+                          slide.titleFontSize ??
+                          (slide.titleSize === 'sm'
+                            ? 28
+                            : slide.titleSize === 'md'
+                            ? 36
+                            : slide.titleSize === 'xl'
+                            ? 54
+                            : 40)
+                        }
+                        onChange={(e) =>
+                          onUpdateSlide({
+                            ...slide,
+                            titleFontSize: parseInt(e.target.value, 10),
+                          })
+                        }
+                        className="w-14 accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                        title="Størrelse på hovedoverskrift"
+                      />
+                      <span className="font-mono text-[10px] font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 min-w-[36px] text-center">
+                        {slide.titleFontSize ??
+                          (slide.titleSize === 'sm'
+                            ? 28
+                            : slide.titleSize === 'md'
+                            ? 36
+                            : slide.titleSize === 'xl'
+                            ? 54
+                            : 40)}
+                        px
+                      </span>
+                    </div>
                   </div>
                   <input
                     type="text"
@@ -363,30 +628,81 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     onChange={(e) =>
                       onUpdateSlide({ ...slide, title: e.target.value })
                     }
-                    className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-semibold"
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-semibold"
                   />
                 </div>
 
-                {/* Subtitle if available */}
-                {(slide.preset === 'hook' ||
-                  slide.preset === 'undertekst' ||
-                  slide.preset === 'meme' ||
-                  slide.preset === 'flerbilde') && (
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
-                      Underoverskrift / Bildetekst under
+                {/* 3. Underoverskrift / Bildetekst under */}
+                <div className="space-y-1.5 bg-stone-50/70 p-2.5 rounded-lg border border-stone-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-bold text-stone-700">
+                      Underoverskrift (valgfritt)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="F.eks. «... skal sjøkanten tettes igjen med enda en steril kasse»"
-                      value={slide.subtitle || ''}
-                      onChange={(e) =>
-                        onUpdateSlide({ ...slide, subtitle: e.target.value })
-                      }
-                      className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      {/* Independent alignment buttons for Underoverskrift */}
+                      <div className="flex bg-white border border-stone-200 rounded-md p-0.5 shadow-2xs">
+                        {(
+                          [
+                            { id: 'left' as TextAlignOption, label: 'Venstrejustert', Icon: AlignLeft },
+                            { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                            { id: 'right' as TextAlignOption, label: 'Høyrejustert', Icon: AlignRight },
+                            { id: 'justify' as TextAlignOption, label: 'Blokkjustert', Icon: AlignJustify },
+                          ]
+                        ).map(({ id, label, Icon }) => {
+                          const currentAlign = slide.subtitleAlign || slide.titleAlign || 'center';
+                          const isSelected = currentAlign === id;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() =>
+                                onUpdateSlide({
+                                  ...slide,
+                                  subtitleAlign: id,
+                                })
+                              }
+                              title={`Underoverskrift: ${label}`}
+                              className={`p-1 rounded transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white shadow-2xs'
+                                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Icon className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input
+                        type="range"
+                        min="11"
+                        max="36"
+                        step="1"
+                        value={slide.subtitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)}
+                        onChange={(e) =>
+                          onUpdateSlide({
+                            ...slide,
+                            subtitleFontSize: parseInt(e.target.value, 10),
+                          })
+                        }
+                        className="w-14 accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                        title="Størrelse på underoverskrift"
+                      />
+                      <span className="font-mono text-[10px] font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 min-w-[36px] text-center">
+                        {slide.subtitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)}px
+                      </span>
+                    </div>
                   </div>
-                )}
+                  <input
+                    type="text"
+                    placeholder="F.eks. «... skal sjøkanten tettes igjen med enda en steril kasse»"
+                    value={slide.subtitle || ''}
+                    onChange={(e) =>
+                      onUpdateSlide({ ...slide, subtitle: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
 
                 {/* Plassering av overskrift (Over / Under bilde) */}
                 <div className="space-y-1.5 pt-2 border-t border-stone-200">
@@ -840,16 +1156,17 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   </div>
                 </div>
 
-                {/* Tekstjustering på sitatet (Venstre / Sentrert / Høyre) */}
+                {/* Tekstjustering på sitatet (Venstre / Sentrert / Høyre / Blokkjustert) */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
                     Tekstjustering på sitat
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {[
-                      { id: 'left' as const, label: 'Venstre', Icon: AlignLeft },
-                      { id: 'center' as const, label: 'Sentrert', Icon: AlignCenter },
-                      { id: 'right' as const, label: 'Høyre', Icon: AlignRight },
+                      { id: 'left' as TextAlignOption, label: 'Venstre', Icon: AlignLeft },
+                      { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                      { id: 'right' as TextAlignOption, label: 'Høyre', Icon: AlignRight },
+                      { id: 'justify' as TextAlignOption, label: 'Blokk', Icon: AlignJustify },
                     ].map(({ id, label, Icon }) => {
                       const currentAlign = slide.bodyAlign || slide.titleAlign || 'left';
                       const isSelected = currentAlign === id;
@@ -864,7 +1181,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                               titleAlign: id,
                             })
                           }
-                          className={`py-2 px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          className={`py-2 px-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                             isSelected
                               ? 'border-purple-600 bg-purple-50 text-purple-950 ring-1 ring-purple-600 shadow-xs'
                               : 'border-stone-200 hover:bg-stone-50 text-stone-700'
@@ -1325,55 +1642,40 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             <div className="space-y-3 pt-3 border-t border-stone-200">
               <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-stone-500" />
-                {slide.preset === 'sitat' ? 'Sitatets Justering & Størrelse' : 'Overskriftens Justering & Størrelse'}
+                {slide.preset === 'sitat' ? 'Sitatets Justering & Størrelse' : 'Tekstjustering (Uavhengig per linje)'}
               </label>
 
-              <div className="flex gap-2">
-                <div className="flex-1 bg-stone-100 p-1 rounded-lg flex">
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSlide({ ...slide, titleAlign: 'left', bodyAlign: 'left' })}
-                    className={`flex-1 py-1.5 rounded flex justify-center ${
-                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'left'
-                        ? 'bg-white shadow-xs text-stone-900'
-                        : 'text-stone-500 hover:text-stone-900'
-                    }`}
-                    title="Venstrejustert"
-                  >
-                    <AlignLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onUpdateSlide({ ...slide, titleAlign: 'center', bodyAlign: 'center' })
-                    }
-                    className={`flex-1 py-1.5 rounded flex justify-center ${
-                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'center'
-                        ? 'bg-white shadow-xs text-stone-900'
-                        : 'text-stone-500 hover:text-stone-900'
-                    }`}
-                    title="Sentrert"
-                  >
-                    <AlignCenter className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onUpdateSlide({ ...slide, titleAlign: 'right', bodyAlign: 'right' })
-                    }
-                    className={`flex-1 py-1.5 rounded flex justify-center ${
-                      (slide.preset === 'sitat' ? (slide.bodyAlign || slide.titleAlign || 'left') : slide.titleAlign) === 'right'
-                        ? 'bg-white shadow-xs text-stone-900'
-                        : 'text-stone-500 hover:text-stone-900'
-                    }`}
-                    title="Høyrejustert"
-                  >
-                    <AlignRight className="w-4 h-4" />
-                  </button>
-                </div>
+              {slide.preset === 'sitat' ? (
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-stone-100 p-1 rounded-lg flex">
+                    {(
+                      [
+                        { id: 'left' as TextAlignOption, label: 'Venstrejustert', Icon: AlignLeft },
+                        { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                        { id: 'right' as TextAlignOption, label: 'Høyrejustert', Icon: AlignRight },
+                        { id: 'justify' as TextAlignOption, label: 'Blokkjustert', Icon: AlignJustify },
+                      ]
+                    ).map(({ id, label, Icon }) => {
+                      const active = (slide.bodyAlign || slide.titleAlign || 'left') === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => onUpdateSlide({ ...slide, bodyAlign: id, titleAlign: id })}
+                          className={`flex-1 py-1.5 rounded flex justify-center cursor-pointer ${
+                            active
+                              ? 'bg-white shadow-xs text-purple-700 font-bold'
+                              : 'text-stone-500 hover:text-stone-900'
+                          }`}
+                          title={label}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                <div className="flex-1">
-                  {slide.preset === 'sitat' ? (
+                  <div className="flex-1">
                     <select
                       value={slide.bodyFontSize ?? 17}
                       onChange={(e) =>
@@ -1390,25 +1692,63 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                       <option value={25}>Ekstra Stor (25px)</option>
                       <option value={30}>Kjempe (30px)</option>
                     </select>
-                  ) : (
-                    <select
-                      value={slide.titleSize}
-                      onChange={(e) =>
-                        onUpdateSlide({
-                          ...slide,
-                          titleSize: e.target.value as any,
-                        })
-                      }
-                      className="w-full px-3 py-2 text-xs font-semibold border border-stone-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="sm">Liten (28px)</option>
-                      <option value="md">Normal (36px)</option>
-                      <option value="lg">Stor (44px)</option>
-                      <option value="xl">Ekstra Stor (54px)</option>
-                    </select>
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-2 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                  {[
+                    {
+                      label: 'Overoverskrift',
+                      current: slide.superTitleAlign || slide.titleAlign || 'center',
+                      onSelect: (align: TextAlignOption) =>
+                        onUpdateSlide({ ...slide, superTitleAlign: align }),
+                    },
+                    {
+                      label: 'Overskrift (Hovedtittel)',
+                      current: slide.titleAlign || 'center',
+                      onSelect: (align: TextAlignOption) =>
+                        onUpdateSlide({ ...slide, titleAlign: align }),
+                    },
+                    {
+                      label: 'Underoverskrift',
+                      current: slide.subtitleAlign || slide.titleAlign || 'center',
+                      onSelect: (align: TextAlignOption) =>
+                        onUpdateSlide({ ...slide, subtitleAlign: align }),
+                    },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-stone-700">{row.label}</span>
+                      <div className="flex bg-white border border-stone-200 rounded-lg p-0.5 shadow-2xs">
+                        {(
+                          [
+                            { id: 'left' as TextAlignOption, label: 'Venstrejustert', Icon: AlignLeft },
+                            { id: 'center' as TextAlignOption, label: 'Sentrert', Icon: AlignCenter },
+                            { id: 'right' as TextAlignOption, label: 'Høyrejustert', Icon: AlignRight },
+                            { id: 'justify' as TextAlignOption, label: 'Blokkjustert', Icon: AlignJustify },
+                          ]
+                        ).map(({ id, label, Icon }) => {
+                          const isSelected = row.current === id;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => row.onSelect(id)}
+                              title={`${row.label}: ${label}`}
+                              className={`px-2 py-1 rounded text-[11px] flex items-center gap-1 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white font-bold shadow-2xs'
+                                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+                              }`}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Spacing Gap rule from PDF */}
@@ -1457,10 +1797,39 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </span>
               </div>
 
-              {/* 1. Overskrift Størrelse Slider */}
+              {/* 1. Overoverskrift Størrelse Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-stone-800">Overskrifter (Tittel)</span>
+                  <span className="font-semibold text-stone-800">Overoverskrift</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {slide.superTitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="11"
+                  max="36"
+                  step="1"
+                  value={slide.superTitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17)}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      superTitleFontSize: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>11px</span>
+                  <span>17px (Standard)</span>
+                  <span>36px</span>
+                </div>
+              </div>
+
+              {/* 2. Overskrift Størrelse Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Overskrifter (Hovedtittel)</span>
                   <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
                     {slide.titleFontSize ?? (slide.titleSize === 'sm' ? 28 : slide.titleSize === 'md' ? 36 : slide.titleSize === 'xl' ? 54 : 40)} px
                   </span>
@@ -1486,7 +1855,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </div>
               </div>
 
-              {/* 2. Underoverskrift / Ingress Størrelse Slider */}
+              {/* 3. Underoverskrift / Ingress Størrelse Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-stone-800">Underoverskrift & Ingress</span>
@@ -1496,7 +1865,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </div>
                 <input
                   type="range"
-                  min="12"
+                  min="11"
                   max="36"
                   step="1"
                   value={slide.subtitleFontSize ?? 17}
@@ -1509,13 +1878,13 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
                 />
                 <div className="flex justify-between text-[10px] text-stone-400 font-mono">
-                  <span>12px</span>
+                  <span>11px</span>
                   <span>17px (Standard)</span>
                   <span>36px</span>
                 </div>
               </div>
 
-              {/* 3. Brødtekst / Sitat / Kilde Størrelse Slider */}
+              {/* 4. Brødtekst / Sitat / Kilde Størrelse Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-stone-800">Brødtekst, Sitat & Kilde</span>
@@ -1550,11 +1919,13 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      const supSize = slide.superTitleFontSize ?? (slide.preset === 'flerbilde' ? 15 : 17);
                       const tSize = slide.titleFontSize ?? (slide.titleSize === 'sm' ? 28 : slide.titleSize === 'md' ? 36 : slide.titleSize === 'xl' ? 54 : 40);
                       const sSize = slide.subtitleFontSize ?? 17;
                       const bSize = slide.bodyFontSize ?? 15;
                       const updatedSlides = project.slides.map((s) => ({
                         ...s,
+                        superTitleFontSize: supSize,
                         titleFontSize: tSize,
                         subtitleFontSize: sSize,
                         bodyFontSize: bSize,
@@ -1562,6 +1933,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                       onUpdateProject({
                         ...project,
                         slides: updatedSlides,
+                        superTitleFontSize: supSize,
                         titleFontSize: tSize,
                         subtitleFontSize: sSize,
                         bodyFontSize: bSize,
@@ -1595,10 +1967,39 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </span>
               </div>
 
-              {/* 1. Overskrift Slider */}
+              {/* 1. Overoverskrift Bokstavavstand Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-stone-800">Overskrifter (Tittel)</span>
+                  <span className="font-semibold text-stone-800">Overoverskrift</span>
+                  <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
+                    {(slide.superTitleLetterSpacing ?? slide.subtitleLetterSpacing ?? 0.3).toFixed(1)} px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="8"
+                  step="0.25"
+                  value={slide.superTitleLetterSpacing ?? slide.subtitleLetterSpacing ?? 0.3}
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      superTitleLetterSpacing: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-mono">
+                  <span>Tett (-2px)</span>
+                  <span>Normal (0.3px)</span>
+                  <span>Bred (+8px)</span>
+                </div>
+              </div>
+
+              {/* 2. Overskrift Slider */}
+              <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-800">Overskrifter (Hovedtittel)</span>
                   <span className="font-mono text-xs font-bold text-stone-700 bg-white px-2 py-0.5 rounded border border-stone-300">
                     {(slide.titleLetterSpacing ?? 0.5).toFixed(1)} px
                   </span>
@@ -1624,7 +2025,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </div>
               </div>
 
-              {/* 2. Underoverskrift Slider */}
+              {/* 3. Underoverskrift Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-stone-800">Underoverskrift & Ingress</span>
@@ -1653,7 +2054,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </div>
               </div>
 
-              {/* 3. Brødtekst / Sitater / Kilde Slider */}
+              {/* 4. Brødtekst / Sitater / Kilde Slider */}
               <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-lg border border-stone-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-stone-800">Brødtekst, Sitater & Kilde</span>
@@ -1688,11 +2089,13 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      const supSpacing = slide.superTitleLetterSpacing ?? slide.subtitleLetterSpacing ?? 0.3;
                       const tSpacing = slide.titleLetterSpacing ?? 0.5;
                       const sSpacing = slide.subtitleLetterSpacing ?? 0.3;
                       const bSpacing = slide.bodyLetterSpacing ?? 0.1;
                       const updatedSlides = project.slides.map((s) => ({
                         ...s,
+                        superTitleLetterSpacing: supSpacing,
                         titleLetterSpacing: tSpacing,
                         subtitleLetterSpacing: sSpacing,
                         bodyLetterSpacing: bSpacing,
@@ -1700,6 +2103,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                       onUpdateProject({
                         ...project,
                         slides: updatedSlides,
+                        superTitleLetterSpacing: supSpacing,
                         titleLetterSpacing: tSpacing,
                         subtitleLetterSpacing: sSpacing,
                         bodyLetterSpacing: bSpacing,

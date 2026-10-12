@@ -65,11 +65,12 @@ export const CarouselPreviewModal: React.FC<CarouselPreviewModalProps> = ({
           <div className="overflow-hidden rounded-2xl shadow-2xl border border-stone-800 bg-stone-900">
             <CanvasSlide
               slide={project.slides[currentIndex]}
+              aspectRatio={project.aspectRatio || '4:5'}
               showPurpleGuide={false}
-              showInstagramUi={true}
+              showInstagramUi={project.aspectRatio !== '16:9' && project.aspectRatio !== '9:16'}
               instagramHandle={project.instagramHandle}
               instagramLocation={project.instagramLocation}
-              scale={0.9}
+              scale={project.aspectRatio === '9:16' ? 0.68 : project.aspectRatio === '16:9' ? 0.78 : 0.9}
             />
           </div>
 

@@ -336,9 +336,10 @@ export const ImageAnnotationLayer: React.FC<ImageAnnotationLayerProps> = ({
                     transform: 'translate(-50%, -125%)',
                     backgroundColor: color,
                     color: textColor,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
                   }}
                   onPointerDown={(e) => startDrag(e, ann, 'move')}
-                  className={`absolute px-2 py-0.5 rounded-md font-extrabold text-[11px] leading-tight whitespace-nowrap shadow-md border border-black/25 z-20 ${
+                  className={`absolute px-2 py-0.5 rounded-md font-extrabold text-[11px] leading-tight whitespace-nowrap z-20 ${
                     interactive ? 'cursor-move' : 'pointer-events-none'
                   }`}
                 >
@@ -412,7 +413,7 @@ export const ImageAnnotationLayer: React.FC<ImageAnnotationLayerProps> = ({
                 borderWidth: `${strokePx}px`,
                 borderStyle: ann.dashed ? 'dashed' : 'solid',
                 backgroundColor: ann.filled ? `${color}28` : 'transparent',
-                boxShadow: '0 0 0 1.5px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.25)',
+                filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.45))',
               }}
               onPointerDown={(e) => startDrag(e, ann, 'move')}
               className={`absolute ${
@@ -426,8 +427,9 @@ export const ImageAnnotationLayer: React.FC<ImageAnnotationLayerProps> = ({
                   style={{
                     backgroundColor: color,
                     color: textColor,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
                   }}
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded font-extrabold text-[10px] leading-tight whitespace-nowrap shadow-md border border-black/25 pointer-events-none"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded font-extrabold text-[10px] leading-tight whitespace-nowrap pointer-events-none"
                 >
                   {ann.label}
                 </div>
@@ -459,9 +461,10 @@ export const ImageAnnotationLayer: React.FC<ImageAnnotationLayerProps> = ({
               transform: 'translate(-50%, -50%)',
               backgroundColor: color,
               color: textColor,
+              boxShadow: '0 3px 8px rgba(0,0,0,0.38)',
             }}
             onPointerDown={(e) => startDrag(e, ann, 'move')}
-            className={`absolute px-2.5 py-1 rounded-md font-extrabold text-[11px] leading-tight whitespace-nowrap shadow-lg border-2 border-white z-20 ${
+            className={`absolute px-2.5 py-1 rounded-md font-extrabold text-[11px] leading-tight whitespace-nowrap z-20 ${
               interactive ? 'cursor-move' : 'pointer-events-none'
             } ${isSelected ? 'ring-2 ring-purple-500 scale-105' : ''}`}
           >

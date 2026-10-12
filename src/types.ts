@@ -142,6 +142,8 @@ export interface SpeechBubbleConfig {
   rotation?: number;
 }
 
+export type TextAlignOption = 'left' | 'center' | 'right' | 'justify';
+
 export interface Slide {
   id: string;
   preset: SlidePresetType;
@@ -160,21 +162,107 @@ export interface Slide {
   topBadgeSize?: number;        // Størrelse på emoji/logo på toppen i px
   bgColor: string;             // F.eks. "#fffdf7", "#f7fff7", "#f7f9ff"
   font: BrandFont;
-  titleAlign: 'center' | 'left' | 'right';
-  bodyAlign?: 'center' | 'left' | 'right';
+  superTitleAlign?: TextAlignOption;
+  titleAlign: TextAlignOption;
+  subtitleAlign?: TextAlignOption;
+  bodyAlign?: TextAlignOption;
   titleSize: 'sm' | 'md' | 'lg' | 'xl';
   spacingGap: 'tight' | 'normal' | 'relaxed';
   galleryLayout?: 'vertical' | 'horizontal' | 'grid'; // Layout for flerbilde
   images: SlideImage[];
   speechBubble?: SpeechBubbleConfig;
   showRealityTag?: boolean;
-  titleLetterSpacing?: number;    // Letter spacing for overskrifter (in px, e.g. -2 to 10)
-  subtitleLetterSpacing?: number; // Letter spacing for underoverskrifter, ingress, captions (in px)
-  bodyLetterSpacing?: number;     // Letter spacing for brødtekst, sitater, kilder (in px)
-  titleFontSize?: number;         // Font size for overskrift i px (f.eks 20-72px)
-  subtitleFontSize?: number;      // Font size for underoverskrift/ingress i px (f.eks 12-36px)
-  bodyFontSize?: number;          // Font size for brødtekst/sitat/kilde i px (f.eks 10-30px)
+  titleLetterSpacing?: number;      // Letter spacing for overskrifter (in px, e.g. -2 to 10)
+  superTitleLetterSpacing?: number; // Letter spacing for overoverskrift (in px)
+  subtitleLetterSpacing?: number;   // Letter spacing for underoverskrifter, ingress, captions (in px)
+  bodyLetterSpacing?: number;       // Letter spacing for brødtekst, sitater, kilder (in px)
+  superTitleFontSize?: number;      // Font size for overoverskrift i px (f.eks 12-36px)
+  titleFontSize?: number;           // Font size for overskrift i px (f.eks 20-72px)
+  subtitleFontSize?: number;        // Font size for underoverskrift/ingress i px (f.eks 12-36px)
+  bodyFontSize?: number;            // Font size for brødtekst/sitat/kilde i px (f.eks 10-30px)
   titlePosition?: 'above' | 'below'; // 'above' (over bilde, standard) eller 'below' (under bilde)
+}
+
+export type PostAspectRatio = '4:5' | '1:1' | '9:16' | '16:9' | '4:3';
+
+export interface PostFormatConfig {
+  id: PostAspectRatio;
+  label: string;
+  shortLabel: string;
+  desc: string;
+  width: number;        // Canvas preview width (0.5x of standard HD)
+  height: number;       // Canvas preview height (0.5x of standard HD)
+  exportWidth: number;  // Standard export width (2x)
+  exportHeight: number; // Standard export height (2x)
+  ultraWidth: number;   // Ultra HD export width (4x)
+  ultraHeight: number;  // Ultra HD export height (4x)
+}
+
+export const POST_FORMATS: Record<PostAspectRatio, PostFormatConfig> = {
+  '4:5': {
+    id: '4:5',
+    label: '4:5 Portrett (Standard)',
+    shortLabel: '4:5 Portrett',
+    desc: '1080 × 1350 px (Instagram Feed)',
+    width: 540,
+    height: 675,
+    exportWidth: 1080,
+    exportHeight: 1350,
+    ultraWidth: 2160,
+    ultraHeight: 2700,
+  },
+  '9:16': {
+    id: '9:16',
+    label: '9:16 Vertikal (16:9 stående)',
+    shortLabel: '9:16 Vertikal',
+    desc: '1080 × 1920 px (Story / Reels / TikTok)',
+    width: 540,
+    height: 960,
+    exportWidth: 1080,
+    exportHeight: 1920,
+    ultraWidth: 2160,
+    ultraHeight: 3840,
+  },
+  '16:9': {
+    id: '16:9',
+    label: '16:9 Horisontal (Liggende)',
+    shortLabel: '16:9 Horisontal',
+    desc: '1920 × 1080 px (Bredformat / Presentasjon)',
+    width: 960,
+    height: 540,
+    exportWidth: 1920,
+    exportHeight: 1080,
+    ultraWidth: 3840,
+    ultraHeight: 2160,
+  },
+  '1:1': {
+    id: '1:1',
+    label: '1:1 Kvadratisk',
+    shortLabel: '1:1 Kvadrat',
+    desc: '1080 × 1080 px (Klassisk kvadrat)',
+    width: 540,
+    height: 540,
+    exportWidth: 1080,
+    exportHeight: 1080,
+    ultraWidth: 2160,
+    ultraHeight: 2160,
+  },
+  '4:3': {
+    id: '4:3',
+    label: '4:3 Horisontal (Klassisk)',
+    shortLabel: '4:3 Horisontal',
+    desc: '1440 × 1080 px (Artikkel / Facebook)',
+    width: 720,
+    height: 540,
+    exportWidth: 1440,
+    exportHeight: 1080,
+    ultraWidth: 2880,
+    ultraHeight: 2160,
+  },
+};
+
+export function getPostFormatConfig(aspectRatio?: PostAspectRatio | string): PostFormatConfig {
+  return POST_FORMATS[(aspectRatio as PostAspectRatio) || '4:5'] || POST_FORMATS['4:5'];
 }
 
 export interface CarouselProject {
@@ -185,12 +273,16 @@ export interface CarouselProject {
   instagramLocation: string;
   caption: string;
   hashtags: string;
+  aspectRatio?: PostAspectRatio;
   agrandirVariant?: string;
   titleLetterSpacing?: number;
+  superTitleLetterSpacing?: number;
   subtitleLetterSpacing?: number;
   bodyLetterSpacing?: number;
+  superTitleFontSize?: number;
   titleFontSize?: number;
   subtitleFontSize?: number;
   bodyFontSize?: number;
   titlePosition?: 'above' | 'below';
 }
+

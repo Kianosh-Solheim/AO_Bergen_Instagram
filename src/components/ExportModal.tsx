@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Slide, CarouselProject } from '../types';
+import { Slide, CarouselProject, POST_FORMATS, PostAspectRatio, getPostFormatConfig } from '../types';
 import { CanvasSlide } from './CanvasSlide';
 import { toBlob } from 'html-to-image';
 import html2canvas from 'html2canvas';
@@ -15,12 +15,14 @@ import {
   Instagram,
   Layers,
   CheckCircle2,
+  Ratio,
 } from 'lucide-react';
 
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   project: CarouselProject;
+  onUpdateProject?: (project: CarouselProject) => void;
   activeSlideIndex: number;
   activeSlideRef?: React.RefObject<HTMLDivElement | null>;
   onExportSuccess?: () => void;
@@ -78,15 +80,66 @@ async function preloadAndConvertImage(url: string): Promise<string> {
   }
 }
 
+// Pre-renders an image with its object-fit: cover, object-position, and zoom onto a clean high-res canvas
+// so html-to-image / SVG foreignObject never produces subpixel border/seam lines around images
+async function preRenderImageCover(
+  dataUrl: string,
+  zoom = 1,
+  posX = 50,
+  posY = 50
+): Promise<string> {
+  if (!dataUrl) return '';
+  try {
+    return await new Promise<string>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const nw = img.naturalWidth || 1000;
+          const nh = img.naturalHeight || 1000;
+          // If default zoom=1, we still return the clean dataUrl; if zoomed, pre-bake zoom & pan
+          if (!zoom || zoom === 1) {
+            resolve(dataUrl);
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = nw;
+          canvas.height = nh;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(dataUrl);
+            return;
+          }
+          const ox = (posX / 100) * nw;
+          const oy = (posY / 100) * nh;
+          ctx.save();
+          ctx.translate(ox, oy);
+          ctx.scale(zoom, zoom);
+          ctx.translate(-ox, -oy);
+          ctx.drawImage(img, 0, 0, nw, nh);
+          ctx.restore();
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  } catch {
+    return dataUrl;
+  }
+}
+
 // Deeply inlines all images within a slide before mounting to the export stage
 async function prepareSlideForExport(slide: Slide): Promise<Slide> {
   const preparedImages = await Promise.all(
     (slide.images || []).map(async (img) => {
       if (!img.url) return img;
-      const dataUrl = await preloadAndConvertImage(img.url);
+      const rawDataUrl = await preloadAndConvertImage(img.url);
       return {
         ...img,
-        url: dataUrl,
+        url: rawDataUrl,
       };
     })
   );
@@ -96,13 +149,72 @@ async function prepareSlideForExport(slide: Slide): Promise<Slide> {
   };
 }
 
+// Crops and scales an image onto an exact canvas matching the DOM slot's width/height, object-fit: cover, object-position, and zoom
+// so that html-to-image / SVG foreignObject renders a 1:1 image with zero object-fit seam lines or hairlines
+async function rasterizeSlotImageToExactFit(
+  imgEl: HTMLImageElement,
+  slotWidth: number,
+  slotHeight: number,
+  scale: number,
+  posX = 50,
+  posY = 50,
+  zoom = 1
+): Promise<string | null> {
+  try {
+    const nw = imgEl.naturalWidth;
+    const nh = imgEl.naturalHeight;
+    if (!nw || !nh || slotWidth <= 0 || slotHeight <= 0) return null;
+
+    const targetW = Math.round(slotWidth * scale);
+    const targetH = Math.round(slotHeight * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Compute object-fit: cover dimensions
+    const scaleX = targetW / nw;
+    const scaleY = targetH / nh;
+    const coverScale = Math.max(scaleX, scaleY);
+
+    const drawW = nw * coverScale;
+    const drawH = nh * coverScale;
+
+    const offsetX = (targetW - drawW) * (posX / 100);
+    const offsetY = (targetH - drawH) * (posY / 100);
+
+    ctx.save();
+    if (zoom && zoom !== 1) {
+      const originX = targetW * (posX / 100);
+      const originY = targetH * (posY / 100);
+      ctx.translate(originX, originY);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-originX, -originY);
+    }
+    ctx.drawImage(imgEl, offsetX, offsetY, drawW, drawH);
+    ctx.restore();
+
+    return canvas.toDataURL('image/png');
+  } catch (e) {
+    console.warn('Exact slot rasterization fallback:', e);
+    return null;
+  }
+}
+
 export const ExportModal: React.FC<ExportModalProps> = ({
   isOpen,
   onClose,
   project,
+  onUpdateProject,
   activeSlideIndex,
   onExportSuccess,
 }) => {
+  const formatConfig = getPostFormatConfig(project.aspectRatio);
   const [selectedSlideToDownload, setSelectedSlideToDownload] = useState(activeSlideIndex);
   const [isExportingSingle, setIsExportingSingle] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
@@ -145,6 +257,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   // High-reliability slide capture engine with fallback
   const captureSlideAsBlob = async (targetSlide: Slide, scale: number): Promise<Blob | null> => {
+    const stageW = formatConfig.width;
+    const stageH = formatConfig.height;
+
     // 1. Inline all images in the slide to ensure pure local memory data
     const preparedSlide = await prepareSlideForExport(targetSlide);
 
@@ -195,6 +310,38 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       );
     }
 
+    // 5b. Pre-crop each slot image to its exact rendered slot box so SVG foreignObject never creates object-fit hairlines
+    const slotElements = Array.from(
+      stageElement.querySelectorAll<HTMLElement>('[data-export-img-slot]')
+    );
+    for (const slotEl of slotElements) {
+      const idxAttr = slotEl.getAttribute('data-export-img-slot');
+      const idx = idxAttr !== null ? parseInt(idxAttr, 10) : -1;
+      const imgEl = slotEl.querySelector<HTMLImageElement>('img[data-export-img-el]');
+      const slideImg = idx >= 0 ? preparedSlide.images?.[idx] : undefined;
+      if (imgEl && slideImg) {
+        const rect = slotEl.getBoundingClientRect();
+        const croppedUrl = await rasterizeSlotImageToExactFit(
+          imgEl,
+          rect.width,
+          rect.height,
+          scale,
+          slideImg.positionX ?? 50,
+          slideImg.positionY ?? 50,
+          slideImg.zoom ?? 1
+        );
+        if (croppedUrl) {
+          imgEl.src = croppedUrl;
+          imgEl.style.transform = 'none';
+          imgEl.style.objectFit = 'fill';
+          imgEl.style.objectPosition = 'center center';
+          try {
+            if (imgEl.decode) await imgEl.decode();
+          } catch {}
+        }
+      }
+    }
+
     // Final render frame
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -202,10 +349,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     try {
       const blob = await toBlob(stageElement, {
         pixelRatio: scale,
-        width: 540,
-        height: 675,
-        canvasWidth: 540 * scale,
-        canvasHeight: 675 * scale,
+        width: stageW,
+        height: stageH,
+        canvasWidth: stageW * scale,
+        canvasHeight: stageH * scale,
         backgroundColor: targetSlide.bgColor || '#ffffff',
         cacheBust: false,
       });
@@ -221,8 +368,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         useCORS: true,
         allowTaint: true,
         backgroundColor: targetSlide.bgColor || '#ffffff',
-        width: 540,
-        height: 675,
+        width: stageW,
+        height: stageH,
         logging: false,
       });
       return await new Promise<Blob | null>((resolve) => {
@@ -422,6 +569,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       {/* ========================================================================= */}
       {/* BULLETPROOF LIVE EXPORT STAGE (Always in DOM layout, 100% opacity, zIndex -100) */}
       {/* ========================================================================= */}
+      <style>{`
+        #export-live-slide,
+        #export-live-slide *,
+        #export-live-slide *::before,
+        #export-live-slide *::after {
+          outline-color: transparent !important;
+          outline-style: none !important;
+          -webkit-tap-highlight-color: transparent !important;
+        }
+        #export-live-slide img {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          display: block !important;
+        }
+      `}</style>
       <div
         id="export-live-stage-root"
         aria-hidden="true"
@@ -429,13 +592,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           position: 'fixed',
           top: 0,
           left: 0,
-          width: '540px',
-          height: '675px',
+          width: `${formatConfig.width}px`,
+          height: `${formatConfig.height}px`,
           zIndex: -100,
           pointerEvents: 'none',
           opacity: 1,
           overflow: 'hidden',
-          backgroundColor: '#ffffff',
+          backgroundColor: stageSlide?.slide.bgColor || '#fffdf7',
         }}
       >
         {stageSlide && (
@@ -443,13 +606,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             id="export-live-slide"
             key={`live-stage-${stageSlide.id}`}
             style={{
-              width: '540px',
-              height: '675px',
+              width: `${formatConfig.width}px`,
+              height: `${formatConfig.height}px`,
               backgroundColor: stageSlide.slide.bgColor || '#fffdf7',
+              overflow: 'hidden',
             }}
           >
             <CanvasSlide
               slide={stageSlide.slide}
+              aspectRatio={project.aspectRatio || '4:5'}
               showPurpleGuide={false}
               showInstagramUi={false}
               instagramHandle={project.instagramHandle}
@@ -507,7 +672,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-stone-900">Eksportér Karusell</h2>
-                <p className="text-xs text-stone-500 font-medium">{project.title}</p>
+                <p className="text-xs text-stone-500 font-medium">
+                  {project.title} • {formatConfig.shortLabel} ({formatConfig.exportWidth}×{formatConfig.exportHeight})
+                </p>
               </div>
             </div>
             <button
@@ -527,39 +694,73 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
             )}
 
-            {/* Resolution Options */}
-            <div className="p-4 bg-stone-100 rounded-xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold text-stone-800">
-                  Størrelse og oppløsning
-                </p>
-                <p className="text-[11px] text-stone-500">
-                  Standard 1080×1350 px (4:5 format for Instagram feed)
-                </p>
-              </div>
-              <div className="flex bg-white p-1 rounded-lg border border-stone-300 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setResolution('1080')}
-                  className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                    resolution === '1080'
-                      ? 'bg-stone-900 text-white shadow-2xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                >
-                  1080×1350 (Standard)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setResolution('2160')}
-                  className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                    resolution === '2160'
-                      ? 'bg-stone-900 text-white shadow-2xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                >
-                  2160×2700 (Ultra HD)
-                </button>
+            {/* Format & Resolution Options */}
+            <div className="p-4 bg-stone-100 rounded-xl border border-stone-200 space-y-3">
+              {onUpdateProject && (
+                <div>
+                  <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5 mb-2">
+                    <Ratio className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Format på innlegget</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                    {(Object.keys(POST_FORMATS) as PostAspectRatio[]).map((ratioKey) => {
+                      const fmt = POST_FORMATS[ratioKey];
+                      const isSel = (project.aspectRatio || '4:5') === ratioKey;
+                      return (
+                        <button
+                          key={ratioKey}
+                          type="button"
+                          onClick={() => onUpdateProject({ ...project, aspectRatio: ratioKey })}
+                          className={`px-2.5 py-2 rounded-lg text-left transition-all border cursor-pointer ${
+                            isSel
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="text-[11px] font-bold truncate">{fmt.shortLabel}</div>
+                          <div className={`text-[9px] font-mono ${isSel ? 'text-purple-100' : 'text-stone-400'}`}>
+                            {fmt.exportWidth}×{fmt.exportHeight}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-stone-200/80">
+                <div>
+                  <p className="text-xs font-bold text-stone-800">
+                    Oppløsning ved nedlasting
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    {formatConfig.label} — {formatConfig.desc}
+                  </p>
+                </div>
+                <div className="flex bg-white p-1 rounded-lg border border-stone-300 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setResolution('1080')}
+                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                      resolution === '1080'
+                        ? 'bg-stone-900 text-white shadow-2xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    {formatConfig.exportWidth}×{formatConfig.exportHeight} (Standard)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResolution('2160')}
+                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                      resolution === '2160'
+                        ? 'bg-stone-900 text-white shadow-2xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    {formatConfig.ultraWidth}×{formatConfig.ultraHeight} (Ultra HD)
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -622,7 +823,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       Last ned slide #{selectedSlideToDownload + 1}
                     </p>
                     <p className="text-[11px] text-stone-400 mt-0.5">
-                      Høy oppløsning {resolution === '2160' ? '2160×2700' : '1080×1350'} format
+                      Høy oppløsning{' '}
+                      {resolution === '2160'
+                        ? `${formatConfig.ultraWidth}×${formatConfig.ultraHeight}`
+                        : `${formatConfig.exportWidth}×${formatConfig.exportHeight}`}{' '}
+                      ({formatConfig.shortLabel})
                     </p>
                   </div>
                 </button>

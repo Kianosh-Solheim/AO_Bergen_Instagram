@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Slide, SlideImage, BRAND_COLORS } from '../types';
+import { Slide, SlideImage, BRAND_COLORS, PostAspectRatio, POST_FORMATS, getPostFormatConfig } from '../types';
 import { CanvasSlide } from './CanvasSlide';
 import {
   ZoomIn,
@@ -13,10 +13,13 @@ import {
   X,
   Compass,
   Plus,
+  Ratio,
 } from 'lucide-react';
 
 interface CanvasWorkspaceProps {
   slide?: Slide;
+  aspectRatio?: PostAspectRatio;
+  onChangeAspectRatio?: (ratio: PostAspectRatio) => void;
   showPurpleGuide: boolean;
   showInstagramUi: boolean;
   instagramHandle?: string;
@@ -44,6 +47,8 @@ const ZOOM_PRESETS = [
 
 export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   slide,
+  aspectRatio = '4:5',
+  onChangeAspectRatio,
   showPurpleGuide,
   showInstagramUi,
   instagramHandle,
@@ -57,6 +62,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   isRecipeGuideOpen,
   setIsRecipeGuideOpen,
 }) => {
+  const formatConfig = getPostFormatConfig(aspectRatio);
   const [zoomScale, setZoomScale] = useState<number>(0.85);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [toolMode, setToolMode] = useState<'select' | 'hand'>('select');
@@ -64,29 +70,30 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [showPresetMenu, setShowPresetMenu] = useState<boolean>(false);
+  const [showFormatMenu, setShowFormatMenu] = useState<boolean>(false);
   const [showHints, setShowHints] = useState<boolean>(true);
   const [wheelMode, setWheelMode] = useState<'zoom' | 'pan'>('zoom');
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const presetMenuRef = useRef<HTMLDivElement>(null);
+  const formatMenuRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fit to viewport (optimized for mobile screens)
+  // Auto-fit to viewport (optimized for mobile screens and any aspect ratio)
   const handleFitToScreen = useCallback(() => {
     if (!viewportRef.current) return;
     const { clientWidth, clientHeight } = viewportRef.current;
-    // Canvas dimensions are 540 x 675
     const isMobile = clientWidth < 640;
     const paddingX = isMobile ? 20 : 80;
     const paddingY = isMobile ? 40 : 90;
     const availableW = Math.max(160, clientWidth - paddingX);
     const availableH = Math.max(200, clientHeight - paddingY);
-    const fitX = availableW / 540;
-    const fitY = availableH / 675;
+    const fitX = availableW / formatConfig.width;
+    const fitY = availableH / formatConfig.height;
     const calculatedScale = Math.min(fitX, fitY);
-    const clampedScale = Math.min(1.4, Math.max(0.35, calculatedScale));
+    const clampedScale = Math.min(1.4, Math.max(0.28, calculatedScale));
     setZoomScale(Number(clampedScale.toFixed(2)));
     setPanOffset({ x: 0, y: 0 });
-  }, []);
+  }, [formatConfig.width, formatConfig.height]);
 
   // Reset Pan to Center
   const handleCenterCanvas = useCallback(() => {
@@ -107,7 +114,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     });
   };
 
-  // Fit on mount and on resize
+  // Fit on mount, on resize, and when aspectRatio changes
   useEffect(() => {
     handleFitToScreen();
     window.addEventListener('resize', handleFitToScreen);
@@ -161,20 +168,23 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     };
   }, [handleFitToScreen, handleActualSize]);
 
-  // Click outside to close preset dropdown
+  // Click outside to close preset & format dropdowns
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (presetMenuRef.current && !presetMenuRef.current.contains(e.target as Node)) {
         setShowPresetMenu(false);
       }
+      if (formatMenuRef.current && !formatMenuRef.current.contains(e.target as Node)) {
+        setShowFormatMenu(false);
+      }
     };
-    if (showPresetMenu) {
+    if (showPresetMenu || showFormatMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPresetMenu]);
+  }, [showPresetMenu, showFormatMenu]);
 
   // Wheel Zoom & Pan handler with non-passive event listener
   useEffect(() => {
@@ -369,6 +379,72 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
               <Hand className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Format Switcher Dropdown on Canvas Bar */}
+          {onChangeAspectRatio && (
+            <>
+              <div className="h-4 w-px bg-stone-300 mx-0.5" />
+              <div className="relative" ref={formatMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowFormatMenu(!showFormatMenu)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-lg border border-purple-200 transition-colors cursor-pointer"
+                  title="Endre format / dimensjoner på innlegget (4:5, 9:16 vertikal, 16:9 horisontal, 1:1, 4:3)"
+                >
+                  <Ratio className="w-3.5 h-3.5 text-purple-700" />
+                  <span>{formatConfig.shortLabel}</span>
+                  <ChevronDown className="w-3 h-3 text-purple-600" />
+                </button>
+
+                {showFormatMenu && (
+                  <div className="absolute top-full mt-1.5 left-0 w-64 bg-white rounded-xl shadow-2xl border border-stone-200 p-1.5 z-50 text-xs animate-in fade-in">
+                    <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                      Velg format på innlegg
+                    </div>
+                    {(Object.keys(POST_FORMATS) as PostAspectRatio[]).map((ratioKey) => {
+                      const fmt = POST_FORMATS[ratioKey];
+                      const isSel = aspectRatio === ratioKey;
+                      return (
+                        <button
+                          key={ratioKey}
+                          type="button"
+                          onClick={() => {
+                            onChangeAspectRatio(ratioKey);
+                            setShowFormatMenu(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                            isSel
+                              ? 'bg-purple-600 text-white font-bold'
+                              : 'hover:bg-stone-100 text-stone-800'
+                          }`}
+                        >
+                          <div>
+                            <div className="font-bold text-xs">{fmt.label}</div>
+                            <div
+                              className={`text-[10px] ${
+                                isSel ? 'text-purple-100' : 'text-stone-500'
+                              }`}
+                            >
+                              {fmt.desc}
+                            </div>
+                          </div>
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              isSel
+                                ? 'bg-purple-800 text-white'
+                                : 'bg-stone-100 text-stone-600'
+                            }`}
+                          >
+                            {fmt.id}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right Side: Zoom Controls & Pan Reset */}
@@ -558,6 +634,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
           {slide ? (
             <CanvasSlide
               slide={slide}
+              aspectRatio={aspectRatio}
               showPurpleGuide={showPurpleGuide}
               showInstagramUi={showInstagramUi}
               instagramHandle={instagramHandle}
@@ -572,8 +649,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
             <div
               className="relative select-none origin-center flex-shrink-0 bg-white shadow-2xl rounded-sm flex flex-col items-center justify-center p-8 text-center border border-stone-300"
               style={{
-                width: '540px',
-                height: '675px',
+                width: `${formatConfig.width}px`,
+                height: `${formatConfig.height}px`,
                 transform: `scale(${zoomScale})`,
               }}
             >

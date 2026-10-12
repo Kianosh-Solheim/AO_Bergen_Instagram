@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Slide, CarouselProject, SlidePresetType, SlideImage } from './types';
+import { Slide, CarouselProject, SlidePresetType, SlideImage, getPostFormatConfig, PostAspectRatio } from './types';
 import { INITIAL_PROJECT, PRESET_TEMPLATES } from './data/defaultPresets';
 import { loginWithGoogle, logout, auth } from './lib/firebase';
 import {
@@ -148,6 +148,15 @@ export default function App() {
 
   // Ensure activeSlideIndex stays valid
   const currentSlide = project.slides[activeSlideIndex] ?? project.slides[0];
+  const currentFormat = getPostFormatConfig(project.aspectRatio);
+
+  const handleUpdateAspectRatio = (newRatio: PostAspectRatio) => {
+    setProject((prev) => ({
+      ...prev,
+      aspectRatio: newRatio,
+    }));
+    setHasUnsavedChanges(true);
+  };
 
   const handleUpdateSlide = (updatedSlide: Slide) => {
     if (!project.slides[activeSlideIndex]) return;
@@ -523,7 +532,7 @@ export default function App() {
                     Instagram Malbygger
                   </span>
                   <span className="text-[10px] font-semibold uppercase bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded-full border border-purple-200 flex-shrink-0">
-                    1080 × 1350
+                    {currentFormat.exportWidth} × {currentFormat.exportHeight} ({currentFormat.id})
                   </span>
                 </div>
                 {/* Post Title Field & Status Selector */}
@@ -740,7 +749,7 @@ export default function App() {
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Eksporter 1080×1350</span>
+              <span>Eksporter {currentFormat.exportWidth}×{currentFormat.exportHeight}</span>
             </button>
 
             {/* Reset Template */}
@@ -770,6 +779,8 @@ export default function App() {
         <div className="flex-1 h-full flex flex-col justify-between relative min-w-0">
           <CanvasWorkspace
             slide={currentSlide}
+            aspectRatio={project.aspectRatio || '4:5'}
+            onChangeAspectRatio={handleUpdateAspectRatio}
             showPurpleGuide={showPurpleGuide}
             showInstagramUi={showInstagramUi}
             instagramHandle={project.instagramHandle}
@@ -789,6 +800,7 @@ export default function App() {
           {/* Bottom Carousel Management Strip */}
           <SlideStrip
             slides={project.slides}
+            aspectRatio={project.aspectRatio || '4:5'}
             activeSlideIndex={activeSlideIndex}
             onSelectSlide={(idx) => setActiveSlideIndex(idx)}
             onAddSlide={(preset) => handleAddSlide(preset)}
@@ -1203,7 +1215,7 @@ export default function App() {
         title={`Juster bilde #${(editingImage?.index ?? 0) + 1}`}
       />
 
-      {/* 2. Export 1080x1350 Modal */}
+      {/* 2. Export Modal */}
       <ExportModal
         isOpen={isExportOpen}
         onExportSuccess={async () => {
@@ -1229,6 +1241,10 @@ export default function App() {
         }}
         onClose={() => setIsExportOpen(false)}
         project={project}
+        onUpdateProject={(updatedProj) => {
+          setProject(updatedProj);
+          setHasUnsavedChanges(true);
+        }}
         activeSlideIndex={activeSlideIndex}
         activeSlideRef={activeCanvasRef}
       />
