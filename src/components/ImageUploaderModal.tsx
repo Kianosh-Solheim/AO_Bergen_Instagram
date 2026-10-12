@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SlideImage, ImageAnnotation } from '../types';
 import { SAMPLE_IMAGES } from '../data/defaultPresets';
-import { compressImageFile } from '../lib/imageUtils';
+import { compressImageFile, compressDataUrlIfNeeded } from '../lib/imageUtils';
 import { ImageAnnotationLayer, AnnotationEditorControls } from './ImageAnnotationLayer';
 import { Upload, Image as ImageIcon, ZoomIn, Move, X, Check, Link, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -133,20 +133,29 @@ export const ImageUploaderModal: React.FC<ImageUploaderModalProps> = ({
     }
   };
 
-  const handleSave = () => {
-    onSave({
-      ...image,
-      url,
-      credit,
-      caption,
-      zoom,
-      positionY,
-      positionX,
-      labelTag,
-      signText,
-      annotations,
-    });
-    onClose();
+  const handleSave = async () => {
+    setIsProcessingFile(true);
+    try {
+      const optimizedUrl =
+        url && url.startsWith('data:image/') && url.length > 220_000
+          ? await compressDataUrlIfNeeded(url)
+          : url;
+      onSave({
+        ...image,
+        url: optimizedUrl,
+        credit,
+        caption,
+        zoom,
+        positionY,
+        positionX,
+        labelTag,
+        signText,
+        annotations,
+      });
+      onClose();
+    } finally {
+      setIsProcessingFile(false);
+    }
   };
 
   const isLocalUploadedImage = Boolean(url && url.startsWith('data:image/'));

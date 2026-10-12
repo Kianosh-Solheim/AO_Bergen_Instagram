@@ -95,7 +95,28 @@ export type SlidePresetType =
   | 'sitat'         // Sitat / Tekst med ikon og kilde
   | 'undertekst'    // Bilde med engasjerende tekst under
   | 'meme'          // Lov med litt tull og tøys (snakkeboble, Comic Sans, Gru)
-  | 'side_by_side';  // Sammenligning side ved side
+  | 'side_by_side'  // Sammenligning side ved side
+  | 'personer'      // Folk / Paneldeltakere med bilde, navn og tittel/rolle (skaleres automatisk)
+  | 'program';      // Program / Tidsskjema med klokkeslett og beskrivelse
+
+export interface PersonCard {
+  id: string;
+  name: string;         // F.eks. "Saher Sourouri"
+  role: string;         // F.eks. "Daglig leder i Arkitekturopprøret"
+  org?: string;         // Valgfri ekstra linje
+  imageUrl: string;     // Portrettbilde (data URL eller http URL)
+  zoom?: number;        // 1 to 2.5
+  positionX?: number;   // 0 to 100
+  positionY?: number;   // 0 to 100
+}
+
+export interface ProgramEntry {
+  id: string;
+  time?: string;        // F.eks. "1830" eller "18:30" (valgfritt for mellomlinjer)
+  title: string;        // F.eks. "Dørene åpner" eller "Deretter paneldebatt"
+  description?: string; // Valgfri ekstra detalj
+  highlight?: boolean;
+}
 
 export type ImageAnnotationType = 'arrow' | 'box' | 'circle' | 'label';
 
@@ -170,6 +191,11 @@ export interface Slide {
   spacingGap: 'tight' | 'normal' | 'relaxed';
   galleryLayout?: 'vertical' | 'horizontal' | 'grid'; // Layout for flerbilde
   images: SlideImage[];
+  people?: PersonCard[];         // Liste over personer (for 'personer' malen)
+  personImageShape?: 'circle' | 'rounded'; // Form på portrettbilde i 'personer' malen
+  personScale?: number;          // Ekstra skalering på personkort (0.7 til 1.4, standard 1)
+  programText?: string;          // Tekstbasert program (f.eks. "1830 - Dørene åpner\n1900 - ...")
+  programItems?: ProgramEntry[]; // Valgfrie strukturerte programpunkter
   speechBubble?: SpeechBubbleConfig;
   showRealityTag?: boolean;
   titleLetterSpacing?: number;      // Letter spacing for overskrifter (in px, e.g. -2 to 10)

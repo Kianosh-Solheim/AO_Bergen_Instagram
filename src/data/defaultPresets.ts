@@ -273,6 +273,70 @@ export const PRESET_TEMPLATES: Record<SlidePresetType, { name: string; desc: str
       ],
     }),
   },
+  personer: {
+    name: 'Folk / Panel & Roller',
+    desc: 'Bilder av folk med navn og tittel/rolle — skalerer automatisk etter antall.',
+    icon: 'Users',
+    slideFactory: () => ({
+      id: `slide-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      preset: 'personer',
+      title: 'I panelet:',
+      subtitle: '',
+      bgColor: '#fff3d1',
+      font: 'agrandir',
+      titleAlign: 'center',
+      titleSize: 'md',
+      spacingGap: 'normal',
+      sourceCredit: '',
+      images: [],
+      personImageShape: 'rounded',
+      personScale: 1,
+      people: [
+        {
+          id: `person-${Date.now()}-1`,
+          name: 'Saher Sourouri',
+          role: 'Daglig leder i Arkitekturopprøret',
+          imageUrl: '',
+          zoom: 1,
+          positionX: 50,
+          positionY: 50,
+        },
+        {
+          id: `person-${Date.now()}-2`,
+          name: 'Navn Navnesen',
+          role: 'Tittel / Rolle / Parti',
+          imageUrl: '',
+          zoom: 1,
+          positionX: 50,
+          positionY: 50,
+        },
+      ],
+    }),
+  },
+  program: {
+    name: 'Program & Tidsskjema',
+    desc: 'Oversiktlig program med klokkeslett og programposter for debatt og arrangement.',
+    icon: 'CalendarClock',
+    slideFactory: () => ({
+      id: `slide-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      preset: 'program',
+      title: 'Program:',
+      subtitle: '',
+      bgColor: '#e2f6e5',
+      font: 'agrandir',
+      titleAlign: 'left',
+      titleSize: 'lg',
+      spacingGap: 'normal',
+      sourceCredit: '',
+      images: [],
+      programText: `1830 - Dørene åpner
+1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret
+Deretter paneldebatt
+1945 - Pause
+2000 - Del 2
+2100 - Debatten avsluttes`,
+    }),
+  },
 };
 
 // Initial project starts with a single completely empty slide

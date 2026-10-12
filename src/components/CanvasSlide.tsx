@@ -221,7 +221,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
           'flex flex-col'
         } ${getSpacingClass(slide.spacingGap)}`}
       >
-        {images.map((img, idx) => renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-0'))}
+        {effectiveImages.map((img, idx) => renderImageSlot(img, idx, `Last opp bilde #${idx + 1}`, 'flex-1 min-h-0'))}
       </div>
     );
   };
@@ -867,6 +867,428 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                 </div>
 
                 {isBelow && headerElement}
+              </div>
+            );
+          })()}
+
+          {/* 9. PRESET: FOLK / PANEL & ROLLER (SKALERER AUTOMATISK BASERT PÅ ANTALL) */}
+          {slide.preset === 'personer' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const people = slide.people || [];
+            const count = people.length;
+            const userScale = slide.personScale ?? 1;
+            const isCircle = slide.personImageShape === 'circle';
+            const isLandscape = aspectRatio === '16:9' || aspectRatio === '4:3';
+
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
+              <div className={`w-full ${isBelow ? 'mt-3 mb-1' : 'mb-3'} shrink-0`}>
+                {slide.superTitle && (
+                  <p
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`w-full font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    } ${getAlignClass(slide.titleAlign, 'center')}`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+                {slide.subtitle && (
+                  <p
+                    style={getSubtitleStyle()}
+                    className={`w-full mt-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
+              </div>
+            ) : null;
+
+            // Dynamic auto-scaling parameters based on how many people are added (1 to 8+)
+            const getScalingMetrics = () => {
+              if (count <= 1) {
+                return {
+                  gridClass: 'grid-cols-1 max-w-[340px] mx-auto',
+                  avatarSize: Math.round((isLandscape ? 150 : 210) * userScale),
+                  nameSize: Math.round(24 * userScale),
+                  roleSize: Math.round(15 * userScale),
+                  gapClass: 'gap-4',
+                  cardPadding: 'p-4',
+                  horizontalCard: false,
+                };
+              }
+              if (count === 2) {
+                return {
+                  gridClass: 'grid-cols-2',
+                  avatarSize: Math.round((isLandscape ? 125 : 165) * userScale),
+                  nameSize: Math.round(19 * userScale),
+                  roleSize: Math.round(13.5 * userScale),
+                  gapClass: 'gap-4',
+                  cardPadding: 'p-3',
+                  horizontalCard: false,
+                };
+              }
+              if (count === 3) {
+                return {
+                  gridClass: isLandscape ? 'grid-cols-3' : 'grid-cols-1',
+                  avatarSize: Math.round((isLandscape ? 105 : 94) * userScale),
+                  nameSize: Math.round((isLandscape ? 16 : 18) * userScale),
+                  roleSize: Math.round((isLandscape ? 12 : 13.5) * userScale),
+                  gapClass: 'gap-3',
+                  cardPadding: 'p-2.5',
+                  horizontalCard: !isLandscape,
+                };
+              }
+              if (count === 4) {
+                return {
+                  gridClass: 'grid-cols-2',
+                  avatarSize: Math.round((isLandscape ? 88 : 114) * userScale),
+                  nameSize: Math.round(16 * userScale),
+                  roleSize: Math.round(12 * userScale),
+                  gapClass: 'gap-3',
+                  cardPadding: 'p-2.5',
+                  horizontalCard: false,
+                };
+              }
+              if (count <= 6) {
+                return {
+                  gridClass: isLandscape ? 'grid-cols-3' : 'grid-cols-2',
+                  avatarSize: Math.round((isLandscape ? 76 : 84) * userScale),
+                  nameSize: Math.round(14.5 * userScale),
+                  roleSize: Math.round(11.5 * userScale),
+                  gapClass: 'gap-2.5',
+                  cardPadding: 'p-2',
+                  horizontalCard: false,
+                };
+              }
+              return {
+                gridClass: 'grid-cols-3',
+                avatarSize: Math.round(68 * userScale),
+                nameSize: Math.round(13 * userScale),
+                roleSize: Math.round(10.5 * userScale),
+                gapClass: 'gap-2',
+                cardPadding: 'p-1.5',
+                horizontalCard: false,
+              };
+            };
+
+            const metrics = getScalingMetrics();
+
+            const handlePersonPhotoUpload = async (personIdx: number, file: File) => {
+              if (!file.type.startsWith('image/') || !onUpdateSlide) return;
+              try {
+                const optimizedUrl = await compressImageFile(file, 800, 140_000);
+                const nextPeople = [...people];
+                if (nextPeople[personIdx]) {
+                  nextPeople[personIdx] = {
+                    ...nextPeople[personIdx],
+                    imageUrl: optimizedUrl,
+                  };
+                  onUpdateSlide({ ...slide, people: nextPeople });
+                }
+              } catch (err) {
+                console.error('Feil ved opplasting av personbilde:', err);
+              }
+            };
+
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+
+                <div className="flex-1 flex flex-col justify-center min-h-0 my-auto w-full">
+                  {people.length === 0 ? (
+                    <div className="p-6 border-2 border-dashed border-stone-300 rounded-xl text-center text-stone-500 text-sm">
+                      Legg til personer i sidepanelet til høyre
+                    </div>
+                  ) : (
+                    <div className={`grid ${metrics.gridClass} ${metrics.gapClass} w-full items-stretch my-auto`}>
+                      {people.map((person, pIdx) => {
+                        const hasPhoto = Boolean(person.imageUrl && person.imageUrl.trim());
+                        return (
+                          <div
+                            key={person.id || pIdx}
+                            className={`bg-white/65 border border-stone-900/12 rounded-xl shadow-2xs ${metrics.cardPadding} flex ${
+                              metrics.horizontalCard
+                                ? 'flex-row items-center text-left gap-3.5'
+                                : 'flex-col items-center text-center justify-start'
+                            } transition-all`}
+                          >
+                            {/* Portrait Image Slot */}
+                            <label
+                              style={{
+                                width: `${metrics.avatarSize}px`,
+                                height: `${metrics.avatarSize}px`,
+                              }}
+                              title={interactive ? 'Klikk for å laste opp bilde av personen' : undefined}
+                              className={`relative shrink-0 overflow-hidden bg-stone-200/90 border-2 border-stone-900/15 shadow-xs flex items-center justify-center ${
+                                isCircle ? 'rounded-full' : 'rounded-xl'
+                              } ${interactive ? 'cursor-pointer group hover:border-purple-600' : ''}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {interactive && (
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handlePersonPhotoUpload(pIdx, file);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                />
+                              )}
+                              {hasPhoto ? (
+                                <img
+                                  src={person.imageUrl}
+                                  alt={person.name || `Person ${pIdx + 1}`}
+                                  className="w-full h-full object-cover block"
+                                  style={{
+                                    transform:
+                                      person.zoom && person.zoom !== 1
+                                        ? `scale(${person.zoom})`
+                                        : undefined,
+                                    objectPosition: `${person.positionX ?? 50}% ${person.positionY ?? 50}%`,
+                                    transformOrigin:
+                                      person.zoom && person.zoom !== 1
+                                        ? `${person.positionX ?? 50}% ${person.positionY ?? 50}%`
+                                        : undefined,
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center justify-center p-2 text-stone-400 group-hover:text-purple-600 transition-colors">
+                                  <Upload className="w-5 h-5 mb-1" />
+                                  <span className="text-[10px] font-bold leading-tight text-center">
+                                    Last opp
+                                  </span>
+                                </div>
+                              )}
+                            </label>
+
+                            {/* Name & Role */}
+                            <div
+                              className={`min-w-0 flex-1 ${
+                                metrics.horizontalCard ? '' : 'mt-2 w-full'
+                              }`}
+                            >
+                              {person.name && (
+                                <h3
+                                  style={{
+                                    fontSize: `${metrics.nameSize}px`,
+                                    letterSpacing:
+                                      slide.titleLetterSpacing !== undefined
+                                        ? `${slide.titleLetterSpacing}px`
+                                        : undefined,
+                                  }}
+                                  className="font-bold text-stone-950 leading-tight break-words"
+                                >
+                                  {person.name}
+                                </h3>
+                              )}
+                              {person.role && (
+                                <p
+                                  style={{
+                                    fontSize: `${metrics.roleSize}px`,
+                                    letterSpacing:
+                                      slide.subtitleLetterSpacing !== undefined
+                                        ? `${slide.subtitleLetterSpacing}px`
+                                        : undefined,
+                                  }}
+                                  className="font-medium text-stone-700 leading-snug mt-0.5 whitespace-pre-line break-words"
+                                >
+                                  {person.role}
+                                </p>
+                              )}
+                              {person.org && (
+                                <p
+                                  style={{
+                                    fontSize: `${Math.max(10, metrics.roleSize - 1.5)}px`,
+                                  }}
+                                  className="font-semibold text-stone-500 leading-snug mt-0.5 break-words"
+                                >
+                                  {person.org}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {isBelow && headerElement}
+
+                {slide.sourceCredit && (
+                  <p
+                    style={getBodyStyle()}
+                    className={`w-full text-[13px] font-bold text-stone-800 mt-2 shrink-0 ${getAlignClass(slide.bodyAlign, slide.titleAlign)}`}
+                  >
+                    {slide.sourceCredit}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 10. PRESET: PROGRAM & TIDSSKJEMA */}
+          {slide.preset === 'program' && (() => {
+            const isBelow = slide.titlePosition === 'below';
+            const rawProgram =
+              slide.programText ??
+              `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`;
+
+            const lines = rawProgram
+              .split('\n')
+              .map((l) => l.trim())
+              .filter(Boolean);
+
+            // Parse each line into either { time, text } or a continuation/sub-item { time: null, text }
+            const parsedLines = lines.map((line) => {
+              // Match e.g. "1830 - Dørene åpner", "18:30 - ...", "18.30 – ...", "Kl. 19:00 - ..."
+              const match = line.match(
+                /^(?:kl\.?\s*)?(\d{1,2}[:.]?\d{2}(?:\s*[-–]\s*\d{1,2}[:.]?\d{2})?)\s*[-–—:]\s*(.+)$/i
+              );
+              if (match) {
+                return {
+                  time: match[1].trim(),
+                  text: match[2].trim(),
+                };
+              }
+              return {
+                time: null,
+                text: line,
+              };
+            });
+
+            // Auto-scale program font size based on line count if user hasn't manually overridden bodyFontSize
+            const defaultProgramFontSize =
+              lines.length <= 5 ? 20 : lines.length <= 7 ? 18 : lines.length <= 10 ? 15.5 : 13.5;
+            const effectiveFontSize = slide.bodyFontSize ?? defaultProgramFontSize;
+
+            const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
+              <div className={`w-full ${isBelow ? 'mt-4 mb-1' : 'mb-4'} shrink-0`}>
+                {slide.superTitle && (
+                  <p
+                    style={getSuperTitleStyle()}
+                    className={`w-full mb-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.superTitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.superTitle}
+                  </p>
+                )}
+                {slide.title && (
+                  <h2
+                    style={getTitleStyle()}
+                    className={`w-full font-bold text-stone-900 ${
+                      !slide.titleFontSize ? getTitleSizeClass(slide.titleSize) : ''
+                    } ${getAlignClass(slide.titleAlign, 'left')}`}
+                  >
+                    {slide.title}
+                  </h2>
+                )}
+                {slide.subtitle && (
+                  <p
+                    style={getSubtitleStyle()}
+                    className={`w-full mt-1 text-[17px] text-stone-700 font-medium leading-snug ${getAlignClass(slide.subtitleAlign, slide.titleAlign)}`}
+                  >
+                    {slide.subtitle}
+                  </p>
+                )}
+              </div>
+            ) : null;
+
+            return (
+              <div className="flex-1 flex flex-col justify-between min-h-0">
+                {!isBelow && headerElement}
+
+                <div className="flex-1 flex flex-col justify-center min-h-0 my-auto w-full">
+                  <div className="space-y-3 w-full">
+                    {parsedLines.map((item, idx) => {
+                      if (item.time) {
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-baseline gap-3.5 pb-2.5 border-b border-stone-900/12 last:border-b-0"
+                          >
+                            <span
+                              style={{
+                                fontSize: `${effectiveFontSize}px`,
+                                letterSpacing:
+                                  slide.bodyLetterSpacing !== undefined
+                                    ? `${slide.bodyLetterSpacing}px`
+                                    : undefined,
+                              }}
+                              className="font-extrabold text-stone-950 shrink-0 min-w-[64px] tabular-nums"
+                            >
+                              {item.time}
+                            </span>
+                            <span className="text-stone-400 font-bold select-none shrink-0">–</span>
+                            <span
+                              style={{
+                                fontSize: `${effectiveFontSize}px`,
+                                letterSpacing:
+                                  slide.bodyLetterSpacing !== undefined
+                                    ? `${slide.bodyLetterSpacing}px`
+                                    : undefined,
+                              }}
+                              className={`font-semibold text-stone-900 leading-snug flex-1 ${getAlignClass(
+                                slide.bodyAlign,
+                                'left'
+                              )}`}
+                            >
+                              {renderHighlightText(item.text, slide.highlightWords)}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      // Continuation line without timestamp (e.g. "Deretter paneldebatt")
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-baseline gap-3.5 -mt-1.5 pb-2 border-b border-stone-900/12 last:border-b-0"
+                        >
+                          <span className="shrink-0 min-w-[64px]" />
+                          <span className="shrink-0 w-3" />
+                          <span
+                            style={{
+                              fontSize: `${Math.max(12, effectiveFontSize - 1)}px`,
+                              letterSpacing:
+                                slide.bodyLetterSpacing !== undefined
+                                  ? `${slide.bodyLetterSpacing}px`
+                                  : undefined,
+                            }}
+                            className={`font-bold italic text-stone-800 leading-snug flex-1 ${getAlignClass(
+                              slide.bodyAlign,
+                              'left'
+                            )}`}
+                          >
+                            {renderHighlightText(item.text, slide.highlightWords)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {isBelow && headerElement}
+
+                {slide.sourceCredit && (
+                  <p
+                    style={getBodyStyle()}
+                    className={`w-full text-[13px] font-bold text-stone-800 mt-3 shrink-0 ${getAlignClass(slide.bodyAlign, slide.titleAlign)}`}
+                  >
+                    {slide.sourceCredit}
+                  </p>
+                )}
               </div>
             );
           })()}

@@ -107,9 +107,22 @@ export const SlideStrip: React.FC<SlideStripProps> = ({
                     alt="mini"
                     className="w-full h-8 object-cover rounded-xs"
                   />
+                ) : s.preset === 'personer' && s.people?.[0]?.imageUrl ? (
+                  <img
+                    src={s.people[0].imageUrl}
+                    alt="mini-person"
+                    className="w-full h-8 object-cover rounded-xs"
+                  />
                 ) : (
                   <div className="w-full h-8 bg-stone-200/80 rounded-xs flex items-center justify-center text-[8px] text-stone-600 font-medium px-0.5 text-center">
-                    {s.iconEmoji || (s.preset === 'sitat' ? 'Sitat' : 'Mal')}
+                    {s.iconEmoji ||
+                      (s.preset === 'sitat'
+                        ? 'Sitat'
+                        : s.preset === 'personer'
+                        ? `Folk (${(s.people || []).length})`
+                        : s.preset === 'program'
+                        ? 'Program'
+                        : 'Mal')}
                   </div>
                 )}
 

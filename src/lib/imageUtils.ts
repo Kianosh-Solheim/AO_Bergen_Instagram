@@ -293,6 +293,65 @@ export function removeWhiteBackgroundFromLogo(dataUrl: string): Promise<string> 
   });
 }
 
+export async function ensureSlideImagesOptimized(
+  slide: Slide,
+  targetMaxChars: number = DEFAULT_TARGET_MAX_CHARS
+): Promise<Slide> {
+  if (!slide) return slide;
+
+  let updatedLogoUrl = slide.topLogoUrl;
+  if (
+    updatedLogoUrl &&
+    updatedLogoUrl.startsWith('data:image/') &&
+    !updatedLogoUrl.startsWith('data:image/svg+xml')
+  ) {
+    updatedLogoUrl = await compressDataUrlIfNeeded(updatedLogoUrl, Math.min(120_000, targetMaxChars), 600);
+  }
+
+  const optimizedImages: SlideImage[] = slide.images
+    ? await Promise.all(
+        slide.images.map(async (img) => {
+          if (!img?.url || !img.url.startsWith('data:image/')) {
+            return img;
+          }
+          const compressedUrl = await compressDataUrlIfNeeded(img.url, targetMaxChars);
+          if (compressedUrl === img.url) return img;
+          return {
+            ...img,
+            url: compressedUrl,
+          };
+        })
+      )
+    : [];
+
+  const optimizedPeople = slide.people
+    ? await Promise.all(
+        slide.people.map(async (person) => {
+          if (!person?.imageUrl || !person.imageUrl.startsWith('data:image/')) {
+            return person;
+          }
+          const compressedUrl = await compressDataUrlIfNeeded(
+            person.imageUrl,
+            Math.min(140_000, targetMaxChars),
+            800
+          );
+          if (compressedUrl === person.imageUrl) return person;
+          return {
+            ...person,
+            imageUrl: compressedUrl,
+          };
+        })
+      )
+    : undefined;
+
+  return {
+    ...slide,
+    topLogoUrl: updatedLogoUrl,
+    images: optimizedImages,
+    ...(optimizedPeople ? { people: optimizedPeople } : {}),
+  };
+}
+
 /**
  * Optimizes all computer-uploaded (`data:image/...`) images across all slides in a project
  * so that the entire project can be reliably saved as a draft in Firestore and localStorage.
@@ -305,11 +364,16 @@ export async function optimizeProjectImagesForStorage(
     return project;
   }
 
-  // Count how many base64 uploaded images exist across all slides
+  // Count how many base64 uploaded images exist across all slides (including people portraits and logos)
   let uploadedImageCount = 0;
   for (const slide of project.slides) {
     for (const img of slide.images || []) {
       if (img?.url && img.url.startsWith('data:image/')) {
+        uploadedImageCount++;
+      }
+    }
+    for (const person of slide.people || []) {
+      if (person?.imageUrl && person.imageUrl.startsWith('data:image/')) {
         uploadedImageCount++;
       }
     }
@@ -324,47 +388,12 @@ export async function optimizeProjectImagesForStorage(
 
   // Calculate per-image budget so all images fit comfortably inside a single Firestore document when possible
   const perImageBudget = Math.max(
-    95_000,
+    85_000,
     Math.min(DEFAULT_TARGET_MAX_CHARS, Math.floor(maxTotalImageChars / uploadedImageCount))
   );
 
   const optimizedSlides: Slide[] = await Promise.all(
-    project.slides.map(async (slide) => {
-      let updatedLogoUrl = slide.topLogoUrl;
-      if (
-        updatedLogoUrl &&
-        updatedLogoUrl.startsWith('data:image/') &&
-        !updatedLogoUrl.startsWith('data:image/svg+xml')
-      ) {
-        updatedLogoUrl = await compressDataUrlIfNeeded(updatedLogoUrl, Math.min(120_000, perImageBudget), 600);
-      }
-
-      if (!slide.images || slide.images.length === 0) {
-        if (updatedLogoUrl !== slide.topLogoUrl) {
-          return { ...slide, topLogoUrl: updatedLogoUrl };
-        }
-        return slide;
-      }
-
-      const optimizedImages: SlideImage[] = await Promise.all(
-        slide.images.map(async (img) => {
-          if (!img?.url || !img.url.startsWith('data:image/')) {
-            return img;
-          }
-          const compressedUrl = await compressDataUrlIfNeeded(img.url, perImageBudget);
-          if (compressedUrl === img.url) return img;
-          return {
-            ...img,
-            url: compressedUrl,
-          };
-        })
-      );
-      return {
-        ...slide,
-        topLogoUrl: updatedLogoUrl,
-        images: optimizedImages,
-      };
-    })
+    project.slides.map((slide) => ensureSlideImagesOptimized(slide, perImageBudget))
   );
 
   return {

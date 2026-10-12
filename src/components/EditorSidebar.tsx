@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage, CarouselProject, POST_FORMATS, PostAspectRatio, getPostFormatConfig, TextAlignOption } from '../types';
+import { Slide, SlidePresetType, BrandFont, BRAND_COLORS, SlideImage, CarouselProject, POST_FORMATS, PostAspectRatio, getPostFormatConfig, TextAlignOption, PersonCard } from '../types';
 import { PRESET_TEMPLATES, SAMPLE_IMAGES } from '../data/defaultPresets';
 import { NEWSPAPER_LOGOS } from '../data/newspaperLogos';
 import { compressImageFile, compressTransparentLogoFile, removeWhiteBackgroundFromLogo } from '../lib/imageUtils';
@@ -32,6 +32,9 @@ import {
   Wand2,
   ArrowUpRight,
   Ratio,
+  Users,
+  CalendarClock,
+  Trash2,
 } from 'lucide-react';
 interface EditorSidebarProps {
   project?: CarouselProject;
@@ -161,6 +164,10 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         sourceCredit: slide.sourceCredit || templateSlide.sourceCredit || '',
         priceValue: slide.priceValue || templateSlide.priceValue || '',
         headingTag: slide.headingTag || templateSlide.headingTag,
+        people: slide.people && slide.people.length > 0 ? slide.people : templateSlide.people,
+        personImageShape: slide.personImageShape || templateSlide.personImageShape,
+        personScale: slide.personScale ?? templateSlide.personScale,
+        programText: slide.programText || templateSlide.programText,
         showRealityTag:
           newPreset === 'meme'
             ? slide.showRealityTag ?? true
@@ -1212,8 +1219,352 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
               </div>
             )}
 
+            {/* PRESET: FOLK / PANEL & ROLLER (Skalerer automatisk basert på antall) */}
+            {slide.preset === 'personer' && (
+              <div className="space-y-3 pt-2 border-t border-stone-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-purple-600" />
+                    Folk & Roller ({(slide.people || []).length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPeople: PersonCard[] = [
+                        ...(slide.people || []),
+                        {
+                          id: `person-${Date.now()}-${Math.random().toString(36).substr(2, 3)}`,
+                          name: 'Nytt navn',
+                          role: 'Tittel / Rolle',
+                          imageUrl: '',
+                          zoom: 1,
+                          positionX: 50,
+                          positionY: 50,
+                        },
+                      ];
+                      onUpdateSlide({ ...slide, people: nextPeople });
+                    }}
+                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Legg til person</span>
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-stone-500 leading-snug">
+                  Kortene og bildene skalerer seg automatisk opp og ned basert på hvor mange personer som er lagt til.
+                </p>
+
+                {/* Form på portrett og manuell finskalering */}
+                <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-stone-700">Bildeform:</span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateSlide({ ...slide, personImageShape: 'rounded' })}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer ${
+                          (slide.personImageShape || 'rounded') === 'rounded'
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                        }`}
+                      >
+                        Avrundet firkant
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateSlide({ ...slide, personImageShape: 'circle' })}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer ${
+                          slide.personImageShape === 'circle'
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                        }`}
+                      >
+                        Sirkel
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[11px] mb-1">
+                      <span className="font-bold text-stone-700">Finjuster størrelse (skalering)</span>
+                      <span className="font-mono font-bold text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                        {Math.round((slide.personScale ?? 1) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.65"
+                      max="1.35"
+                      step="0.05"
+                      value={slide.personScale ?? 1}
+                      onChange={(e) =>
+                        onUpdateSlide({
+                          ...slide,
+                          personScale: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                {/* Liste over personer */}
+                <div className="space-y-2.5">
+                  {(slide.people || []).map((person, pIdx) => (
+                    <div
+                      key={person.id || pIdx}
+                      className="p-2.5 rounded-lg border border-stone-200 bg-stone-50/80 space-y-2"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        {/* Portrett opplasting */}
+                        <label
+                          className="w-14 h-14 rounded-lg border-2 border-dashed border-stone-300 hover:border-purple-500 bg-white overflow-hidden flex flex-col items-center justify-center shrink-0 cursor-pointer relative group"
+                          title="Klikk for å laste opp portrettbilde"
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                const optimizedUrl = await compressImageFile(file, 800, 140_000);
+                                const nextPeople = [...(slide.people || [])];
+                                nextPeople[pIdx] = {
+                                  ...person,
+                                  imageUrl: optimizedUrl,
+                                };
+                                onUpdateSlide({ ...slide, people: nextPeople });
+                              } catch (err) {
+                                console.error('Feil ved opplasting av personbilde:', err);
+                              } finally {
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                          {person.imageUrl ? (
+                            <img
+                              src={person.imageUrl}
+                              alt={person.name}
+                              className="w-full h-full object-cover"
+                              style={{
+                                transform:
+                                  person.zoom && person.zoom !== 1
+                                    ? `scale(${person.zoom})`
+                                    : undefined,
+                                objectPosition: `${person.positionX ?? 50}% ${person.positionY ?? 50}%`,
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 text-stone-400 group-hover:text-purple-600" />
+                              <span className="text-[9px] font-bold text-stone-500 mt-0.5">
+                                Bilde
+                              </span>
+                            </>
+                          )}
+                        </label>
+
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <input
+                            type="text"
+                            placeholder="Navn (f.eks. Saher Sourouri)"
+                            value={person.name}
+                            onChange={(e) => {
+                              const nextPeople = [...(slide.people || [])];
+                              nextPeople[pIdx] = { ...person, name: e.target.value };
+                              onUpdateSlide({ ...slide, people: nextPeople });
+                            }}
+                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Tittel / Rolle (f.eks. Daglig leder i Arkitekturopprøret)"
+                            value={person.role}
+                            onChange={(e) => {
+                              const nextPeople = [...(slide.people || [])];
+                              nextPeople[pIdx] = { ...person, role: e.target.value };
+                              onUpdateSlide({ ...slide, people: nextPeople });
+                            }}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextPeople = (slide.people || []).filter((_, i) => i !== pIdx);
+                            onUpdateSlide({ ...slide, people: nextPeople });
+                          }}
+                          title="Fjern person"
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Zoom & Utsnitt hvis bilde er lastet opp */}
+                      {person.imageUrl && (
+                        <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-stone-200/80 text-[10px]">
+                          <div>
+                            <span className="font-semibold text-stone-600 block">
+                              Zoom ({(person.zoom ?? 1).toFixed(1)}x)
+                            </span>
+                            <input
+                              type="range"
+                              min="1"
+                              max="2.5"
+                              step="0.05"
+                              value={person.zoom ?? 1}
+                              onChange={(e) => {
+                                const nextPeople = [...(slide.people || [])];
+                                nextPeople[pIdx] = {
+                                  ...person,
+                                  zoom: parseFloat(e.target.value),
+                                };
+                                onUpdateSlide({ ...slide, people: nextPeople });
+                              }}
+                              className="w-full accent-purple-600 cursor-pointer h-1 bg-stone-200 rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <span className="font-semibold text-stone-600 block">
+                              Høyde ({person.positionY ?? 50}%)
+                            </span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={person.positionY ?? 50}
+                              onChange={(e) => {
+                                const nextPeople = [...(slide.people || [])];
+                                nextPeople[pIdx] = {
+                                  ...person,
+                                  positionY: parseInt(e.target.value, 10),
+                                };
+                                onUpdateSlide({ ...slide, people: nextPeople });
+                              }}
+                              className="w-full accent-purple-600 cursor-pointer h-1 bg-stone-200 rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <span className="font-semibold text-stone-600 block">
+                              Side ({person.positionX ?? 50}%)
+                            </span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={person.positionX ?? 50}
+                              onChange={(e) => {
+                                const nextPeople = [...(slide.people || [])];
+                                nextPeople[pIdx] = {
+                                  ...person,
+                                  positionX: parseInt(e.target.value, 10),
+                                };
+                                onUpdateSlide({ ...slide, people: nextPeople });
+                              }}
+                              className="w-full accent-purple-600 cursor-pointer h-1 bg-stone-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PRESET: PROGRAM & TIDSSKJEMA */}
+            {slide.preset === 'program' && (
+              <div className="space-y-3 pt-2 border-t border-stone-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarClock className="w-3.5 h-3.5 text-purple-600" />
+                    Program & Klokkeslett
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateSlide({
+                        ...slide,
+                        title: slide.title || 'Program:',
+                        programText: `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`,
+                      })
+                    }
+                    className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 cursor-pointer"
+                  >
+                    Fyll inn eksempel
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-stone-500 leading-snug">
+                  Skriv én programpost per linje (f.eks. <code className="bg-stone-100 px-1 rounded">1830 - Dørene åpner</code>). Linjer uten klokkeslett (som <code className="bg-stone-100 px-1 rounded">Deretter paneldebatt</code>) rykkes automatisk pent inn under forrige punkt.
+                </p>
+
+                <textarea
+                  rows={8}
+                  value={
+                    slide.programText ??
+                    `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`
+                  }
+                  onChange={(e) =>
+                    onUpdateSlide({
+                      ...slide,
+                      programText: e.target.value,
+                    })
+                  }
+                  placeholder={`1830 - Dørene åpner\n1900 - Debatten starter...\nDeretter paneldebatt\n1945 - Pause`}
+                  className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium leading-relaxed"
+                />
+
+                {/* Tekststørrelse på programpunkter */}
+                <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-stone-700">Tekststørrelse på program</span>
+                    <span className="font-mono text-[11px] font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      {slide.bodyFontSize ?? 18} px
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="12"
+                    max="28"
+                    step="1"
+                    value={slide.bodyFontSize ?? 18}
+                    onChange={(e) =>
+                      onUpdateSlide({
+                        ...slide,
+                        bodyFontSize: parseInt(e.target.value, 10),
+                      })
+                    }
+                    className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Uthevede ord i programmet (kommaseparert for gul markering)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="f.eks: Saher Sourouri, paneldebatt, Pause"
+                    value={slide.highlightWords || ''}
+                    onChange={(e) =>
+                      onUpdateSlide({ ...slide, highlightWords: e.target.value })
+                    }
+                    className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Layout selector for Flerbilde / Gallery */}
-            {(slide.preset === 'flerbilde' || slide.images.length > 1) && (
+            {(slide.preset === 'flerbilde' || slide.images.length > 1) && slide.preset !== 'personer' && slide.preset !== 'program' && (
               <div className="space-y-3 pt-2 border-t border-stone-200">
                 <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
                   Bildeoppsett (Fotovegg/Galleri)
@@ -1257,6 +1608,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             )}
 
             {/* Images List & Actions */}
+            {slide.preset !== 'personer' && slide.preset !== 'program' && (
             <div className="space-y-3 pt-2 border-t border-stone-200">
               <input
                 ref={sidebarFileInputRef}
@@ -1443,6 +1795,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             {/* Source / Kilde Footer Input */}
             <div className="pt-2 border-t border-stone-200">

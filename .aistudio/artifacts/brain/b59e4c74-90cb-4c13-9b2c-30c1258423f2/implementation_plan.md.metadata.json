@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementeringsplan for automatisk bildekomprimering og validering ved opplasting til project.slides, samt nye maler for «Folk / Panel & Roller» (med sirkulære portretter og automatisk skalering) og «Program & Tidsskjema» (med to-kolonners oppsett, enkeltfelter og råtekst-redigering).",
+  "updatedAt":  "2026-10-12T09:59:28.085916429Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

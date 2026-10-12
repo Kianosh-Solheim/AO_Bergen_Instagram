@@ -13,6 +13,8 @@ import {
   saveLocalDraftToStorage,
   loadLocalDraftFromStorage,
   optimizeProjectImagesForStorage,
+  ensureSlideImagesOptimized,
+  compressDataUrlIfNeeded,
 } from './lib/imageUtils';
 import { isUserAdmin, syncUserProfile, ADMIN_EMAIL } from './lib/userService';
 import { User, onAuthStateChanged } from 'firebase/auth';
@@ -119,7 +121,27 @@ export default function App() {
       const targetDraft = idbDraft || project;
       const optimized = await optimizeProjectImagesForStorage(targetDraft);
       if (isMounted && optimized) {
-        setProject(optimized);
+        const cleanedSlides = (optimized.slides || []).map((s) => {
+          const isSinglePreset =
+            s.preset === 'hook' ||
+            s.preset === 'prislapp' ||
+            s.preset === 'undertekst' ||
+            s.preset === 'meme';
+          if (!isSinglePreset || !Array.isArray(s.images) || s.images.length <= 1) {
+            return s;
+          }
+          const filtered = s.images.filter(
+            (im, idx) => idx === 0 || Boolean(im?.url && im.url.trim())
+          );
+          return {
+            ...s,
+            images: filtered,
+          };
+        });
+        setProject({
+          ...optimized,
+          slides: cleanedSlides,
+        });
       }
     })();
     return () => {
@@ -162,11 +184,35 @@ export default function App() {
     if (!project.slides[activeSlideIndex]) return;
     const newSlides = [...project.slides];
     newSlides[activeSlideIndex] = updatedSlide;
-    setProject({
-      ...project,
+    setProject((prev) => ({
+      ...prev,
       slides: newSlides,
-    });
+    }));
     setHasUnsavedChanges(true);
+
+    // Automatically check if any image in updatedSlide is oversized (> 220 KB data URL)
+    // and compress it before persisting in project.slides
+    const hasOversizedDataUrl =
+      (updatedSlide.images || []).some(
+        (im) => im?.url && im.url.startsWith('data:image/') && im.url.length > 220_000
+      ) ||
+      (updatedSlide.people || []).some(
+        (p) => p?.imageUrl && p.imageUrl.startsWith('data:image/') && p.imageUrl.length > 140_000
+      ) ||
+      Boolean(
+        updatedSlide.topLogoUrl &&
+          updatedSlide.topLogoUrl.startsWith('data:image/') &&
+          updatedSlide.topLogoUrl.length > 120_000
+      );
+
+    if (hasOversizedDataUrl) {
+      ensureSlideImagesOptimized(updatedSlide).then((compressedSlide) => {
+        setProject((prev) => ({
+          ...prev,
+          slides: prev.slides.map((s) => (s.id === compressedSlide.id ? compressedSlide : s)),
+        }));
+      });
+    }
   };
 
   const handleAddSlide = (preset: SlidePresetType = 'hook') => {
@@ -223,10 +269,17 @@ export default function App() {
     setHasUnsavedChanges(true);
   };
 
-  const handleSaveImageEdits = (updatedImage: SlideImage) => {
+  const handleSaveImageEdits = async (updatedImage: SlideImage) => {
     if (!editingImage) return;
+    let finalUrl = updatedImage.url;
+    if (finalUrl && finalUrl.startsWith('data:image/') && finalUrl.length > 220_000) {
+      finalUrl = await compressDataUrlIfNeeded(finalUrl);
+    }
     const updatedImages = [...currentSlide.images];
-    updatedImages[editingImage.index] = updatedImage;
+    updatedImages[editingImage.index] = {
+      ...updatedImage,
+      url: finalUrl,
+    };
     handleUpdateSlide({
       ...currentSlide,
       images: updatedImages,
@@ -345,12 +398,13 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleLoadProject = (projectDataStr: string, id: string) => {
+  const handleLoadProject = async (projectDataStr: string, id: string) => {
     try {
-      const data = JSON.parse(projectDataStr);
+      const rawData = JSON.parse(projectDataStr);
+      const data = await optimizeProjectImagesForStorage(rawData);
       setProject(data);
       setCurrentProjectId(id);
-      setCurrentProjectStatus((data.status as ProjectStatus) || 'in_progress');
+      setCurrentProjectStatus((rawData.status as ProjectStatus) || 'in_progress');
       localStorage.setItem('ao_current_project_id', id);
       const now = new Date();
       setLastSavedTime(now);
