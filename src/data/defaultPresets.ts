@@ -289,7 +289,7 @@ export const PRESET_TEMPLATES: Record<SlidePresetType, { name: string; desc: str
       spacingGap: 'normal',
       sourceCredit: '',
       images: [],
-      personImageShape: 'rounded',
+      personImageShape: 'circle',
       personScale: 1,
       people: [
         {

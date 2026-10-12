@@ -877,7 +877,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             const people = slide.people || [];
             const count = people.length;
             const userScale = slide.personScale ?? 1;
-            const isCircle = slide.personImageShape === 'circle';
+            const isCircle = (slide.personImageShape ?? 'circle') === 'circle';
             const isLandscape = aspectRatio === '16:9' || aspectRatio === '4:3';
 
             const headerElement = (slide.superTitle || slide.title || slide.subtitle) ? (
@@ -912,6 +912,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
             ) : null;
 
             // Dynamic auto-scaling parameters based on how many people are added (1 to 8+)
+            // Always circular portrait on top with name and role underneath
             const getScalingMetrics = () => {
               if (count <= 1) {
                 return {
@@ -921,61 +922,55 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                   roleSize: Math.round(15 * userScale),
                   gapClass: 'gap-4',
                   cardPadding: 'p-4',
-                  horizontalCard: false,
                 };
               }
               if (count === 2) {
                 return {
                   gridClass: 'grid-cols-2',
-                  avatarSize: Math.round((isLandscape ? 125 : 165) * userScale),
+                  avatarSize: Math.round((isLandscape ? 128 : 165) * userScale),
                   nameSize: Math.round(19 * userScale),
                   roleSize: Math.round(13.5 * userScale),
                   gapClass: 'gap-4',
-                  cardPadding: 'p-3',
-                  horizontalCard: false,
+                  cardPadding: 'p-3.5',
                 };
               }
               if (count === 3) {
                 return {
-                  gridClass: isLandscape ? 'grid-cols-3' : 'grid-cols-1',
-                  avatarSize: Math.round((isLandscape ? 105 : 94) * userScale),
-                  nameSize: Math.round((isLandscape ? 16 : 18) * userScale),
-                  roleSize: Math.round((isLandscape ? 12 : 13.5) * userScale),
+                  gridClass: isLandscape ? 'grid-cols-3' : 'grid-cols-3',
+                  avatarSize: Math.round((isLandscape ? 108 : 114) * userScale),
+                  nameSize: Math.round((isLandscape ? 16 : 15.5) * userScale),
+                  roleSize: Math.round((isLandscape ? 12 : 12) * userScale),
                   gapClass: 'gap-3',
                   cardPadding: 'p-2.5',
-                  horizontalCard: !isLandscape,
                 };
               }
               if (count === 4) {
                 return {
                   gridClass: 'grid-cols-2',
-                  avatarSize: Math.round((isLandscape ? 88 : 114) * userScale),
+                  avatarSize: Math.round((isLandscape ? 88 : 118) * userScale),
                   nameSize: Math.round(16 * userScale),
-                  roleSize: Math.round(12 * userScale),
+                  roleSize: Math.round(12.5 * userScale),
                   gapClass: 'gap-3',
                   cardPadding: 'p-2.5',
-                  horizontalCard: false,
                 };
               }
               if (count <= 6) {
                 return {
-                  gridClass: isLandscape ? 'grid-cols-3' : 'grid-cols-2',
-                  avatarSize: Math.round((isLandscape ? 76 : 84) * userScale),
-                  nameSize: Math.round(14.5 * userScale),
-                  roleSize: Math.round(11.5 * userScale),
+                  gridClass: 'grid-cols-3',
+                  avatarSize: Math.round((isLandscape ? 78 : 88) * userScale),
+                  nameSize: Math.round(14 * userScale),
+                  roleSize: Math.round(11 * userScale),
                   gapClass: 'gap-2.5',
                   cardPadding: 'p-2',
-                  horizontalCard: false,
                 };
               }
               return {
-                gridClass: 'grid-cols-3',
-                avatarSize: Math.round(68 * userScale),
-                nameSize: Math.round(13 * userScale),
-                roleSize: Math.round(10.5 * userScale),
+                gridClass: 'grid-cols-4',
+                avatarSize: Math.round(66 * userScale),
+                nameSize: Math.round(12.5 * userScale),
+                roleSize: Math.round(10 * userScale),
                 gapClass: 'gap-2',
                 cardPadding: 'p-1.5',
-                horizontalCard: false,
               };
             };
 
@@ -1014,13 +1009,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                         return (
                           <div
                             key={person.id || pIdx}
-                            className={`bg-white/65 border border-stone-900/12 rounded-xl shadow-2xs ${metrics.cardPadding} flex ${
-                              metrics.horizontalCard
-                                ? 'flex-row items-center text-left gap-3.5'
-                                : 'flex-col items-center text-center justify-start'
-                            } transition-all`}
+                            className={`bg-white/60 border border-stone-900/10 rounded-2xl shadow-2xs ${metrics.cardPadding} flex flex-col items-center text-center justify-start transition-all`}
                           >
-                            {/* Portrait Image Slot */}
+                            {/* Circular Portrait Image Slot */}
                             <label
                               style={{
                                 width: `${metrics.avatarSize}px`,
@@ -1073,12 +1064,8 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                               )}
                             </label>
 
-                            {/* Name & Role */}
-                            <div
-                              className={`min-w-0 flex-1 ${
-                                metrics.horizontalCard ? '' : 'mt-2 w-full'
-                              }`}
-                            >
+                            {/* Name & Role Underneath Circular Portrait */}
+                            <div className="min-w-0 flex-1 mt-2.5 w-full">
                               {person.name && (
                                 <h3
                                   style={{
@@ -1216,8 +1203,23 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                         return (
                           <div
                             key={idx}
-                            className="flex items-baseline gap-3.5 pb-2.5 border-b border-stone-900/12 last:border-b-0"
+                            className="grid grid-cols-[78px_1fr] items-baseline gap-3 pb-2.5 border-b border-stone-900/12 last:border-b-0"
                           >
+                            <div className="flex items-baseline justify-between pr-1">
+                              <span
+                                style={{
+                                  fontSize: `${effectiveFontSize}px`,
+                                  letterSpacing:
+                                    slide.bodyLetterSpacing !== undefined
+                                      ? `${slide.bodyLetterSpacing}px`
+                                      : undefined,
+                                }}
+                                className="font-extrabold text-stone-950 shrink-0 tabular-nums"
+                              >
+                                {item.time}
+                              </span>
+                              <span className="text-stone-400 font-bold select-none shrink-0">–</span>
+                            </div>
                             <span
                               style={{
                                 fontSize: `${effectiveFontSize}px`,
@@ -1226,20 +1228,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                                     ? `${slide.bodyLetterSpacing}px`
                                     : undefined,
                               }}
-                              className="font-extrabold text-stone-950 shrink-0 min-w-[64px] tabular-nums"
-                            >
-                              {item.time}
-                            </span>
-                            <span className="text-stone-400 font-bold select-none shrink-0">–</span>
-                            <span
-                              style={{
-                                fontSize: `${effectiveFontSize}px`,
-                                letterSpacing:
-                                  slide.bodyLetterSpacing !== undefined
-                                    ? `${slide.bodyLetterSpacing}px`
-                                    : undefined,
-                              }}
-                              className={`font-semibold text-stone-900 leading-snug flex-1 ${getAlignClass(
+                              className={`font-semibold text-stone-900 leading-snug ${getAlignClass(
                                 slide.bodyAlign,
                                 'left'
                               )}`}
@@ -1254,10 +1243,9 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                       return (
                         <div
                           key={idx}
-                          className="flex items-baseline gap-3.5 -mt-1.5 pb-2 border-b border-stone-900/12 last:border-b-0"
+                          className="grid grid-cols-[78px_1fr] items-baseline gap-3 -mt-1.5 pb-2 border-b border-stone-900/12 last:border-b-0"
                         >
-                          <span className="shrink-0 min-w-[64px]" />
-                          <span className="shrink-0 w-3" />
+                          <span className="shrink-0" />
                           <span
                             style={{
                               fontSize: `${Math.max(12, effectiveFontSize - 1)}px`,
@@ -1266,7 +1254,7 @@ export const CanvasSlide: React.FC<CanvasSlideProps> = ({
                                   ? `${slide.bodyLetterSpacing}px`
                                   : undefined,
                             }}
-                            className={`font-bold italic text-stone-800 leading-snug flex-1 ${getAlignClass(
+                            className={`font-bold italic text-stone-800 leading-snug ${getAlignClass(
                               slide.bodyAlign,
                               'left'
                             )}`}

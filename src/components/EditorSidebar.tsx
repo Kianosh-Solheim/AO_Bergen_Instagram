@@ -72,6 +72,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [activeAnnotationImgIndex, setActiveAnnotationImgIndex] = useState<number>(0);
   const [selectedSidebarAnnotationId, setSelectedSidebarAnnotationId] = useState<string | null>(null);
+  const [programInputMode, setProgramInputMode] = useState<'fields' | 'raw'>('fields');
   const sidebarFileInputRef = useRef<HTMLInputElement | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const targetSlotRef = useRef<number | 'new'>('new');
@@ -1262,25 +1263,25 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                     <div className="flex gap-1.5">
                       <button
                         type="button"
+                        onClick={() => onUpdateSlide({ ...slide, personImageShape: 'circle' })}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer ${
+                          (slide.personImageShape ?? 'circle') === 'circle'
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                        }`}
+                      >
+                        Sirkel (Portrett)
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => onUpdateSlide({ ...slide, personImageShape: 'rounded' })}
                         className={`px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer ${
-                          (slide.personImageShape || 'rounded') === 'rounded'
+                          slide.personImageShape === 'rounded'
                             ? 'bg-purple-600 text-white border-purple-600'
                             : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
                         }`}
                       >
                         Avrundet firkant
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateSlide({ ...slide, personImageShape: 'circle' })}
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer ${
-                          slide.personImageShape === 'circle'
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
-                        }`}
-                      >
-                        Sirkel
                       </button>
                     </div>
                   </div>
@@ -1319,7 +1320,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
                       <div className="flex items-start gap-2.5">
                         {/* Portrett opplasting */}
                         <label
-                          className="w-14 h-14 rounded-lg border-2 border-dashed border-stone-300 hover:border-purple-500 bg-white overflow-hidden flex flex-col items-center justify-center shrink-0 cursor-pointer relative group"
+                          className="w-14 h-14 rounded-full border-2 border-dashed border-stone-300 hover:border-purple-500 bg-white overflow-hidden flex flex-col items-center justify-center shrink-0 cursor-pointer relative group"
                           title="Klikk for å laste opp portrettbilde"
                         >
                           <input
@@ -1480,88 +1481,242 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
             )}
 
             {/* PRESET: PROGRAM & TIDSSKJEMA */}
-            {slide.preset === 'program' && (
-              <div className="space-y-3 pt-2 border-t border-stone-200">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <CalendarClock className="w-3.5 h-3.5 text-purple-600" />
-                    Program & Klokkeslett
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onUpdateSlide({
-                        ...slide,
-                        title: slide.title || 'Program:',
-                        programText: `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`,
-                      })
-                    }
-                    className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 cursor-pointer"
-                  >
-                    Fyll inn eksempel
-                  </button>
-                </div>
+            {slide.preset === 'program' && (() => {
+              const defaultProgram = `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`;
+              const rawProgram = slide.programText ?? defaultProgram;
 
-                <p className="text-[11px] text-stone-500 leading-snug">
-                  Skriv én programpost per linje (f.eks. <code className="bg-stone-100 px-1 rounded">1830 - Dørene åpner</code>). Linjer uten klokkeslett (som <code className="bg-stone-100 px-1 rounded">Deretter paneldebatt</code>) rykkes automatisk pent inn under forrige punkt.
-                </p>
-
-                <textarea
-                  rows={8}
-                  value={
-                    slide.programText ??
-                    `1830 - Dørene åpner\n1900 - Debatten starter med en kort innledning av Saher Sourouri, daglig leder i Arkitekturopprøret\nDeretter paneldebatt\n1945 - Pause\n2000 - Del 2\n2100 - Debatten avsluttes`
+              const parsedRows = rawProgram
+                .split('\n')
+                .map((line) => {
+                  const trimmed = line.trim();
+                  const match = trimmed.match(
+                    /^(?:kl\.?\s*)?(\d{1,2}[:.]?\d{2}(?:\s*[-–]\s*\d{1,2}[:.]?\d{2})?)\s*[-–—:]\s*(.*)$/i
+                  );
+                  if (match) {
+                    return {
+                      time: match[1].trim(),
+                      text: match[2].trim(),
+                    };
                   }
-                  onChange={(e) =>
-                    onUpdateSlide({
-                      ...slide,
-                      programText: e.target.value,
-                    })
-                  }
-                  placeholder={`1830 - Dørene åpner\n1900 - Debatten starter...\nDeretter paneldebatt\n1945 - Pause`}
-                  className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium leading-relaxed"
-                />
+                  return {
+                    time: '',
+                    text: trimmed,
+                  };
+                });
 
-                {/* Tekststørrelse på programpunkter */}
-                <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-stone-700">Tekststørrelse på program</span>
-                    <span className="font-mono text-[11px] font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                      {slide.bodyFontSize ?? 18} px
-                    </span>
+              const serializeRowsToProgramText = (rows: { time: string; text: string }[]) => {
+                return rows
+                  .map((r) => {
+                    const t = r.time.trim();
+                    const txt = r.text;
+                    if (t && txt) return `${t} - ${txt}`;
+                    if (t) return `${t} - `;
+                    return txt;
+                  })
+                  .join('\n');
+              };
+
+              const handleUpdateRow = (idx: number, field: 'time' | 'text', value: string) => {
+                const nextRows = [...parsedRows];
+                nextRows[idx] = {
+                  ...nextRows[idx],
+                  [field]: value,
+                };
+                onUpdateSlide({
+                  ...slide,
+                  programText: serializeRowsToProgramText(nextRows),
+                });
+              };
+
+              const handleAddProgramRow = (withTime: boolean) => {
+                const nextRows = [
+                  ...parsedRows.filter((r) => r.time || r.text),
+                  withTime
+                    ? { time: '2030', text: 'Ny programpost' }
+                    : { time: '', text: 'Mellomlinje / underpunkt' },
+                ];
+                onUpdateSlide({
+                  ...slide,
+                  programText: serializeRowsToProgramText(nextRows),
+                });
+              };
+
+              const handleDeleteProgramRow = (idx: number) => {
+                const nextRows = parsedRows.filter((_, i) => i !== idx);
+                onUpdateSlide({
+                  ...slide,
+                  programText: serializeRowsToProgramText(nextRows),
+                });
+              };
+
+              return (
+                <div className="space-y-3 pt-2 border-t border-stone-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <CalendarClock className="w-3.5 h-3.5 text-purple-600" />
+                      Program & Klokkeslett
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onUpdateSlide({
+                          ...slide,
+                          title: slide.title || 'Program:',
+                          programText: defaultProgram,
+                        })
+                      }
+                      className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 cursor-pointer"
+                    >
+                      Fyll inn eksempel
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min="12"
-                    max="28"
-                    step="1"
-                    value={slide.bodyFontSize ?? 18}
-                    onChange={(e) =>
-                      onUpdateSlide({
-                        ...slide,
-                        bodyFontSize: parseInt(e.target.value, 10),
-                      })
-                    }
-                    className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Uthevede ord i programmet (kommaseparert for gul markering)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="f.eks: Saher Sourouri, paneldebatt, Pause"
-                    value={slide.highlightWords || ''}
-                    onChange={(e) =>
-                      onUpdateSlide({ ...slide, highlightWords: e.target.value })
-                    }
-                    className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
+                  {/* Veksle mellom Enkeltfelter per post og Lim inn råtekst */}
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-lg border border-stone-200">
+                    <button
+                      type="button"
+                      onClick={() => setProgramInputMode('fields')}
+                      className={`py-1.5 px-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        programInputMode === 'fields'
+                          ? 'bg-white text-purple-900 shadow-2xs border border-stone-200/80'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      Enkeltfelter per post
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProgramInputMode('raw')}
+                      className={`py-1.5 px-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        programInputMode === 'raw'
+                          ? 'bg-white text-purple-900 shadow-2xs border border-stone-200/80'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      Lim inn råtekst
+                    </button>
+                  </div>
+
+                  {programInputMode === 'fields' ? (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-stone-500 leading-snug">
+                        Fyll inn klokkeslett til venstre og beskrivelse til høyre. La klokkeslett stå tomt for mellomlinjer (som <em>«Deretter paneldebatt»</em>).
+                      </p>
+
+                      <div className="space-y-1.5">
+                        {parsedRows.map((row, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-1.5 p-2 rounded-lg border border-stone-200 bg-stone-50/70"
+                          >
+                            <input
+                              type="text"
+                              placeholder="1830"
+                              value={row.time}
+                              onChange={(e) => handleUpdateRow(idx, 'time', e.target.value)}
+                              title="Klokkeslett (la stå tomt for mellomlinje uten tid)"
+                              className="w-16 px-2 py-1.5 text-xs font-extrabold tabular-nums bg-white border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 shrink-0"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Programpost eller beskrivelse..."
+                              value={row.text}
+                              onChange={(e) => handleUpdateRow(idx, 'text', e.target.value)}
+                              className="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-medium bg-white border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProgramRow(idx)}
+                              title="Fjern programpost"
+                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleAddProgramRow(true)}
+                          className="flex-1 py-1.5 px-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ny programpost</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddProgramRow(false)}
+                          className="py-1.5 px-2.5 bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 rounded-md text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Mellomlinje uten tid</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-stone-500 leading-snug">
+                        Lim inn eller skriv én programpost per linje (f.eks. <code className="bg-stone-100 px-1 rounded">1830 - Dørene åpner</code>). Linjer uten klokkeslett (som <code className="bg-stone-100 px-1 rounded">Deretter paneldebatt</code>) rykkes automatisk pent inn under forrige punkt.
+                      </p>
+
+                      <textarea
+                        rows={8}
+                        value={rawProgram}
+                        onChange={(e) =>
+                          onUpdateSlide({
+                            ...slide,
+                            programText: e.target.value,
+                          })
+                        }
+                        placeholder={`1830 - Dørene åpner\n1900 - Debatten starter...\nDeretter paneldebatt\n1945 - Pause`}
+                        className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium leading-relaxed"
+                      />
+                    </div>
+                  )}
+
+                  {/* Tekststørrelse på programpunkter */}
+                  <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-stone-700">Tekststørrelse på program</span>
+                      <span className="font-mono text-[11px] font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 tabular-nums">
+                        {slide.bodyFontSize ?? 18} px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="12"
+                      max="28"
+                      step="1"
+                      value={slide.bodyFontSize ?? 18}
+                      onChange={(e) =>
+                        onUpdateSlide({
+                          ...slide,
+                          bodyFontSize: parseInt(e.target.value, 10),
+                        })
+                      }
+                      className="w-full accent-purple-600 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Uthevede ord i programmet (kommaseparert for gul markering)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="f.eks: Saher Sourouri, paneldebatt, Pause"
+                      value={slide.highlightWords || ''}
+                      onChange={(e) =>
+                        onUpdateSlide({ ...slide, highlightWords: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Layout selector for Flerbilde / Gallery */}
             {(slide.preset === 'flerbilde' || slide.images.length > 1) && slide.preset !== 'personer' && slide.preset !== 'program' && (
